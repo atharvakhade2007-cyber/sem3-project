@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudyMind AI — Adaptive Test</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+            --card: rgba(30, 41, 59, 0.7);
+            --border: rgba(255,255,255,0.1);
+            --primary: #6366f1;
+            --text: #f8fafc;
+            --text2: #94a3b8;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warn: #f59e0b;
+            --purple: #8b5cf6;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+        header { border-bottom: 1px solid var(--border); background: rgba(15,23,42,0.8); backdrop-filter: blur(12px); position: sticky; top: 0; z-index: 100; padding: 1rem 2rem; }
+        .navbar { max-width: 1100px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+        .brand { display: flex; align-items: center; gap: 0.75rem; text-decoration: none; color: var(--text); font-weight: 700; font-size: 1.25rem; }
+        .brand i { color: var(--primary); font-size: 1.5rem; }
+        .container { max-width: 1100px; margin: 2rem auto; padding: 0 1.5rem; }
+        .back-link { display: inline-flex; align-items: center; gap: 0.5rem; color: var(--text2); text-decoration: none; font-size: 0.9rem; margin-bottom: 1.5rem; transition: color 0.2s; }
+        .back-link:hover { color: var(--text); }
+
+        /* States */
+        .hidden { display: none !important; }
+
+        /* Start screen */
+        .start-screen { text-align: center; padding: 4rem 2rem; }
+        .start-screen h2 { font-size: 1.8rem; margin-bottom: 0.75rem; }
+        .start-screen p { color: var(--text2); max-width: 500px; margin: 0 auto 2rem; line-height: 1.6; }
+        .diff-info { display: flex; gap: 1rem; justify-content: center; margin-bottom: 2rem; flex-wrap: wrap; }
+        .diff-chip { padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.85rem; font-weight: 600; }
+        .diff-easy { background: rgba(16,185,129,0.15); color: #34d399; border: 1px solid rgba(16,185,129,0.3); }
+        .diff-medium { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); }
+        .diff-hard { background: rgba(239,68,68,0.15); color: #fca5a5; border: 1px solid rgba(239,68,68,0.3); }
+        .btn-start { padding: 0.875rem 2.5rem; background: linear-gradient(135deg, var(--primary), var(--purple)); border: none; border-radius: 10px; color: white; font-weight: 600; font-size: 1rem; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
+        .btn-start:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(99,102,241,0.4); }
+
+        /* Loading */
+        .loading { text-align: center; padding: 4rem; color: var(--text2); }
+        .loading .spinner { display: inline-block; width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.15); border-radius: 50%; border-top-color: var(--primary); animation: spin 0.8s linear infinite; margin-bottom: 1rem; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Quiz layout */
+        .quiz-layout { display: grid; grid-template-columns: 1fr 280px; gap: 1.5rem; }
+        @media (max-width: 800px) { .quiz-layout { grid-template-columns: 1fr; } }
+
+        /* Progress */
+        .progress-bar { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; }
+        .progress-track { flex: 1; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, var(--primary), var(--purple)); border-radius: 3px; transition: width 0.3s; }
+        .progress-text { font-size: 0.85rem; color: var(--text2); min-width: 50px; text-align: right; }
+
+        /* Question card */
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; backdrop-filter: blur(16px); padding: 1.5rem; box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
+        .q-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+        .q-number { background: rgba(99,102,241,0.2); color: #a5b4fc; font-weight: 700; font-size: 0.8rem; padding: 0.25rem 0.6rem; border-radius: 6px; }
+        .q-text { font-size: 1.1rem; line-height: 1.6; margin-bottom: 1.5rem; }
+        .options { display: flex; flex-direction: column; gap: 0.75rem; }
+        .option-btn { display: flex; align-items: center; gap: 0.75rem; padding: 0.875rem 1rem; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 10px; cursor: pointer; transition: all 0.2s; font-size: 0.95rem; color: var(--text); text-align: left; }
+        .option-btn:hover:not(:disabled) { border-color: var(--primary); background: rgba(99,102,241,0.08); }
+        .option-btn .key { width: 28px; height: 28px; border-radius: 50%; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; flex-shrink: 0; }
+        .option-btn.correct { border-color: var(--success); background: rgba(16,185,129,0.12); }
+        .option-btn.correct .key { background: var(--success); color: white; }
+        .option-btn.wrong { border-color: var(--danger); background: rgba(239,68,68,0.12); }
+        .option-btn.wrong .key { background: var(--danger); color: white; }
+        .option-btn:disabled { cursor: default; }
+
+        /* Feedback */
+        .feedback { padding: 1rem; border-radius: 10px; margin-top: 1rem; font-size: 0.9rem; line-height: 1.6; display: none; }
+        .feedback-correct { background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.3); color: #34d399; }
+        .feedback-wrong { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); color: #fca5a5; }
+        .next-btn { margin-top: 1rem; padding: 0.6rem 1.5rem; background: var(--primary); border: none; border-radius: 8px; color: white; font-weight: 600; font-size: 0.85rem; cursor: pointer; display: none; }
+
+        /* Sidebar */
+        .sidebar .card { margin-bottom: 1rem; }
+        .stat-row { display: flex; justify-content: space-between; margin-bottom: 0.75rem; }
+        .stat-row:last-child { margin-bottom: 0; }
+        .stat-label { color: var(--text2); font-size: 0.85rem; }
+        .stat-value { font-weight: 700; }
+        .diff-badge { padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
+        .score-value { font-size: 1.5rem; font-weight: 700; color: var(--warn); }
+        .difficulty-history { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 0.5rem; }
+        .diff-dot { width: 10px; height: 10px; border-radius: 50%; }
+        .diff-dot-easy { background: var(--success); }
+        .diff-dot-medium { background: var(--warn); }
+        .diff-dot-hard { background: var(--danger); }
+
+        /* Results */
+        .results { padding: 2rem; }
+        .results-header { text-align: center; margin-bottom: 2rem; }
+        .rating-badge { display: inline-block; padding: 0.75rem 2rem; border-radius: 30px; font-size: 1.5rem; font-weight: 700; margin-bottom: 0.75rem; }
+        .rating-grandmaster { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #1e1b4b; }
+        .rating-master { background: linear-gradient(135deg, #a78bfa, #8b5cf6); color: white; }
+        .rating-expert { background: linear-gradient(135deg, #60a5fa, #3b82f6); color: white; }
+        .rating-skilled { background: linear-gradient(135deg, #34d399, #10b981); color: white; }
+        .rating-learner { background: linear-gradient(135deg, #94a3b8, #64748b); color: white; }
+        .rating-beginner { background: rgba(255,255,255,0.1); border: 1px solid var(--border); color: var(--text2); }
+        .results-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 2rem; }
+        .results-stat { text-align: center; padding: 1rem; background: rgba(15,23,42,0.6); border: 1px solid var(--border); border-radius: 10px; }
+        .results-stat .val { font-size: 1.5rem; font-weight: 700; }
+        .results-stat .lbl { font-size: 0.8rem; color: var(--text2); margin-top: 0.25rem; }
+        .review-list { list-style: none; }
+        .review-item { padding: 1rem; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .review-item:last-child { border-bottom: none; }
+        .review-q { font-weight: 600; margin-bottom: 0.5rem; }
+        .review-meta { font-size: 0.8rem; color: var(--text2); display: flex; gap: 0.75rem; flex-wrap: wrap; }
+        .review-correct { color: var(--success); }
+        .review-wrong { color: var(--danger); }
+        .review-explanation { margin-top: 0.5rem; font-size: 0.85rem; color: #cbd5e1; padding: 0.5rem 0.75rem; background: rgba(255,255,255,0.03); border-radius: 6px; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="navbar">
+            <a href="/" class="brand">
+                <i class="fa-solid fa-brain-circuit"></i>
+                <span>StudyMind AI</span>
+            </a>
+        </div>
+    </header>
+
+    <div class="container">
+        <a href="{% url 'pdf_action' pdf.id %}" class="back-link"><i class="fa-solid fa-arrow-left"></i> Back to Actions</a>
+
+        <!-- START SCREEN -->
+        <div id="startScreen" class="start-screen">
+            <h2>Adaptive Test</h2>
+            <p>This test adapts to your performance. Answer correctly to face harder questions, or drop down if you struggle.</p>
+            <div class="diff-info">
+                <span class="diff-chip diff-easy"><i class="fa-solid fa-circle" style="font-size:0.5rem;vertical-align:middle;"></i> Easy — 1.0x weight</span>
+                <span class="diff-chip diff-medium"><i class="fa-solid fa-circle" style="font-size:0.5rem;vertical-align:middle;"></i> Medium — 1.5x weight</span>
+                <span class="diff-chip diff-hard"><i class="fa-solid fa-circle" style="font-size:0.5rem;vertical-align:middle;"></i> Hard — 2.0x weight</span>
+            </div>
+            <button class="btn-start" id="startBtn"><i class="fa-solid fa-play"></i> Start Test</button>
+        </div>
+
+        <!-- LOADING -->
+        <div id="loadingScreen" class="loading hidden">
+            <div class="spinner"></div>
+            <p>Preparing your first question...</p>
+        </div>
+
+        <!-- QUIZ -->
+        <div id="quizScreen" class="hidden">
+            <div class="progress-bar">
+                <div class="progress-track">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-text" id="progressText">0 / 0</div>
+            </div>
+
+            <div class="quiz-layout">
+                <div class="card" id="questionCard">
+                    <div class="q-header">
+                        <span class="q-number" id="qNumber">Q1</span>
+                        <span class="diff-badge" id="qDiff"></span>
+                    </div>
+                    <div class="q-text" id="qText">Loading...</div>
+                    <div class="options" id="optionsContainer"></div>
+                    <div class="feedback" id="feedback"></div>
+                    <button class="next-btn" id="nextBtn">Next Question →</button>
+                </div>
+
+                <div class="sidebar">
+                    <div class="card">
+                        <div style="margin-bottom:1rem;">
+                            <div class="stat-label">Running Score</div>
+                            <div class="score-value" id="runningScore">0.00</div>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Correct</span>
+                            <span class="stat-value" id="correctCount" style="color:var(--success);">0</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Wrong</span>
+                            <span class="stat-value" id="wrongCount" style="color:var(--danger);">0</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Next Difficulty</span>
+                            <span class="stat-value" id="nextDiff"></span>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="stat-label" style="margin-bottom:0.5rem;">Difficulty Curve</div>
+                        <div class="difficulty-history" id="diffHistory"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RESULTS -->
+        <div id="resultsScreen" class="hidden">
+            <div class="card results">
+                <div class="results-header">
+                    <div class="rating-badge" id="ratingBadge">Beginner</div>
+                    <h2 style="font-size:1.5rem;">Test Complete!</h2>
+                </div>
+
+                <div class="results-stats">
+                    <div class="results-stat">
+                        <div class="val" id="resAccuracy" style="color:var(--success);">0%</div>
+                        <div class="lbl">Accuracy</div>
+                    </div>
+                    <div class="results-stat">
+                        <div class="val" id="resScore" style="color:var(--warn);">0</div>
+                        <div class="lbl">Final Score</div>
+                    </div>
+                    <div class="results-stat">
+                        <div class="val" id="resRating" style="color:var(--purple);">0</div>
+                        <div class="lbl">Normalized Rating</div>
+                    </div>
+                </div>
+
+                <div style="margin-bottom:1rem;">
+                    <h3 style="font-size:1rem; font-weight:600; margin-bottom:0.5rem;">Question Review</h3>
+                </div>
+                <ul class="review-list" id="reviewList"></ul>
+
+                <div style="text-align:center; margin-top:2rem;">
+                    <a href="{% url 'pdf_action' pdf.id %}" class="btn-start" style="text-decoration:none; display:inline-block;">Back to Actions</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (function() {
+        const PDF_ID = {{ pdf.id }};
+        const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+        // State
+        let sessionId = null;
+        let questionsAnswered = 0;
+        let totalQuestions = 12;
+        let correctCount = 0;
+        let wrongCount = 0;
+        let runningScore = 0;
+        let currentQuestion = null;
+        let currentDifficulty = 'medium';
+        let difficultyHistory = [];
+        let isAnswered = false;
+        let resultsBreakdown = [];
+
+        // DOM refs
+        const $startScreen = document.getElementById('startScreen');
+        const $loadingScreen = document.getElementById('loadingScreen');
+        const $quizScreen = document.getElementById('quizScreen');
+        const $resultsScreen = document.getElementById('resultsScreen');
+        const $progressFill = document.getElementById('progressFill');
+        const $progressText = document.getElementById('progressText');
+        const $qNumber = document.getElementById('qNumber');
+        const $qDiff = document.getElementById('qDiff');
+        const $qText = document.getElementById('qText');
+        const $options = document.getElementById('optionsContainer');
+        const $feedback = document.getElementById('feedback');
+        const $nextBtn = document.getElementById('nextBtn');
+        const $runningScore = document.getElementById('runningScore');
+        const $correctCount = document.getElementById('correctCount');
+        const $wrongCount = document.getElementById('wrongCount');
+        const $nextDiff = document.getElementById('nextDiff');
+        const $diffHistory = document.getElementById('diffHistory');
+
+        function showScreen(screen) {
+            [$startScreen, $loadingScreen, $quizScreen, $resultsScreen].forEach(s => s.classList.add('hidden'));
+            screen.classList.remove('hidden');
+        }
+
+        function diffClass(d) { return 'diff-chip diff-' + d; }
+        function diffDotClass(d) { return 'diff-dot diff-dot-' + d; }
+        function diffLabel(d) { return d.charAt(0).toUpperCase() + d.slice(1); }
+
+        async function apiCall(url, method, body) {
+            const opts = { method, headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN } };
+            if (body) opts.body = JSON.stringify(body);
+            const res = await fetch(url, opts);
+            return res.json();
+        }
+
+        // Start test
+        document.getElementById('startBtn').addEventListener('click', async () => {
+            showScreen($loadingScreen);
+            try {
+                const data = await apiCall(`/api/pdf/${PDF_ID}/start-test/`, 'POST', { total_questions: 12 });
+                sessionId = data.session_id;
+                totalQuestions = data.total_questions;
+                await loadNextQuestion();
+            } catch(e) {
+                alert('Failed to start test: ' + e.message);
+                showScreen($startScreen);
+            }
+        });
+
+        async function loadNextQuestion() {
+            showScreen($loadingScreen);
+            try {
+                const data = await apiCall(`/api/session/${sessionId}/next-question/`, 'GET');
+                if (data.completed) {
+                    await loadResults();
+                    return;
+                }
+                currentQuestion = data.question;
+                currentDifficulty = data.current_difficulty;
+                questionsAnswered = data.questions_answered;
+                totalQuestions = data.total_questions;
+                isAnswered = false;
+                renderQuestion();
+                showScreen($quizScreen);
+            } catch(e) {
+                alert('Failed to load question: ' + e.message);
+            }
+        }
+
+        function renderQuestion() {
+            $qNumber.textContent = `Q${questionsAnswered + 1}`;
+            $qDiff.className = 'diff-badge ' + diffClass(currentDifficulty);
+            $qDiff.textContent = diffLabel(currentDifficulty);
+            $qText.textContent = currentQuestion.question_text;
+
+            $options.innerHTML = '';
+            const keys = ['A', 'B', 'C', 'D'];
+            keys.forEach(k => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.innerHTML = `<span class="key">${k}</span><span>${currentQuestion['option_' + k.toLowerCase()]}</span>`;
+                btn.addEventListener('click', () => submitAnswer(k));
+                btn.dataset.key = k;
+                $options.appendChild(btn);
+            });
+
+            $feedback.style.display = 'none';
+            $feedback.className = 'feedback';
+            $nextBtn.style.display = 'none';
+
+            const pct = (questionsAnswered / totalQuestions) * 100;
+            $progressFill.style.width = pct + '%';
+            $progressText.textContent = `${questionsAnswered} / ${totalQuestions}`;
+        }
+
+        async function submitAnswer(selected) {
+            if (isAnswered) return;
+            isAnswered = true;
+
+            try {
+                const data = await apiCall(`/api/session/${sessionId}/submit/`, 'POST', {
+                    question_id: currentQuestion.id,
+                    selected_option: selected
+                });
+
+                // Update state
+                runningScore = data.running_total_score;
+                questionsAnswered = data.questions_answered;
+                if (data.is_correct) correctCount++;
+                else wrongCount++;
+                currentDifficulty = data.new_difficulty;
+                difficultyHistory.push(data.difficulty_answered);
+
+                // Update sidebar
+                $runningScore.textContent = runningScore.toFixed(2);
+                $correctCount.textContent = correctCount;
+                $wrongCount.textContent = wrongCount;
+                $nextDiff.innerHTML = `<span class="${diffClass(currentDifficulty)}" style="padding:0.2rem 0.6rem;border-radius:12px;font-size:0.8rem;">${diffLabel(currentDifficulty)}</span>`;
+                $diffHistory.innerHTML = difficultyHistory.map(d => `<div class="${diffDotClass(d)}" title="${diffLabel(d)}"></div>`).join('');
+
+                // Highlight options
+                const btns = $options.querySelectorAll('.option-btn');
+                btns.forEach(b => {
+                    b.disabled = true;
+                    if (b.dataset.key === data.correct_option) b.classList.add('correct');
+                    if (b.dataset.key === selected && !data.is_correct) b.classList.add('wrong');
+                });
+
+                // Show feedback
+                $feedback.style.display = 'block';
+                if (data.is_correct) {
+                    $feedback.className = 'feedback feedback-correct';
+                    $feedback.innerHTML = `<i class="fa-solid fa-circle-check"></i> Correct! +${data.score_earned} points`;
+                } else {
+                    $feedback.className = 'feedback feedback-wrong';
+                    let html = `<i class="fa-solid fa-circle-xmark"></i> Incorrect. The answer is ${data.correct_option}.`;
+                    if (data.explanation) html += `<br><em>${data.explanation}</em>`;
+                    $feedback.innerHTML = html;
+                }
+
+                // Update progress
+                const pct = (questionsAnswered / totalQuestions) * 100;
+                $progressFill.style.width = pct + '%';
+                $progressText.textContent = `${questionsAnswered} / ${totalQuestions}`;
+
+                if (data.completed) {
+                    $nextBtn.textContent = 'View Results';
+                } else {
+                    $nextBtn.textContent = 'Next Question →';
+                }
+                $nextBtn.style.display = 'inline-block';
+
+                // Store for breakdown
+                resultsBreakdown.push({
+                    question_text: currentQuestion.question_text,
+                    correct_option: data.correct_option,
+                    selected_option: selected,
+                    is_correct: data.is_correct,
+                    difficulty: data.difficulty_answered,
+                    score_earned: data.score_earned,
+                    explanation: data.explanation || ''
+                });
+
+            } catch(e) {
+                alert('Failed to submit answer: ' + e.message);
+                isAnswered = false;
+            }
+        }
+
+        $nextBtn.addEventListener('click', async () => {
+            if ($nextBtn.textContent.includes('Results')) {
+                await loadResults();
+            } else {
+                await loadNextQuestion();
+            }
+        });
+
+        async function loadResults() {
+            showScreen($loadingScreen);
+            try {
+                const data = await apiCall(`/api/session/${sessionId}/results/`, 'GET');
+                renderResults(data);
+                showScreen($resultsScreen);
+            } catch(e) {
+                alert('Failed to load results: ' + e.message);
+            }
+        }
+
+        function renderResults(data) {
+            const badge = document.getElementById('ratingBadge');
+            badge.textContent = data.rating_badge;
+            const badgeClass = 'rating-' + data.rating_badge.toLowerCase();
+            badge.className = 'rating-badge ' + badgeClass;
+
+            document.getElementById('resAccuracy').textContent = data.accuracy + '%';
+            document.getElementById('resScore').textContent = data.final_score;
+            document.getElementById('resRating').textContent = data.normalized_rating;
+
+            const list = document.getElementById('reviewList');
+            list.innerHTML = '';
+            data.breakdown.forEach((item, i) => {
+                const li = document.createElement('li');
+                li.className = 'review-item';
+                li.innerHTML = `
+                    <div class="review-q">Q${i+1}. ${item.question_text}</div>
+                    <div class="review-meta">
+                        <span class="${item.is_correct ? 'review-correct' : 'review-wrong'}">${item.is_correct ? '✓ Correct' : '✗ Incorrect'}</span>
+                        <span>Your answer: ${item.selected_option} | Correct: ${item.correct_option}</span>
+                        <span class="diff-chip ${diffClass(item.difficulty)}" style="font-size:0.7rem;padding:0.15rem 0.5rem;">${diffLabel(item.difficulty)}</span>
+                        <span style="color:var(--warn);">+${item.score_earned}</span>
+                    </div>
+                    ${item.explanation ? `<div class="review-explanation">${item.explanation}</div>` : ''}
+                `;
+                list.appendChild(li);
+            });
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if ($quizScreen.classList.contains('hidden') || isAnswered) {
+                if (e.key === 'Enter' && $nextBtn.style.display !== 'none') {
+                    $nextBtn.click();
+                }
+                return;
+            }
+            const map = { '1': 'A', '2': 'B', '3': 'C', '4': 'D', 'a': 'A', 'b': 'B', 'c': 'C', 'd': 'D' };
+            if (map[e.key]) submitAnswer(map[e.key]);
+        });
+    })();
+    </script>
+</body>
+</html>

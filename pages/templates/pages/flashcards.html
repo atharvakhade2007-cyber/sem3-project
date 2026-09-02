@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudyMind AI — Flashcards</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+            --card: rgba(30, 41, 59, 0.7);
+            --border: rgba(255,255,255,0.1);
+            --primary: #6366f1;
+            --text: #f8fafc;
+            --text2: #94a3b8;
+            --success: #10b981;
+            --purple: #8b5cf6;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+        header { border-bottom: 1px solid var(--border); background: rgba(15,23,42,0.8); backdrop-filter: blur(12px); position: sticky; top: 0; z-index: 100; padding: 1rem 2rem; }
+        .navbar { max-width: 1000px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; width: 100%; }
+        .brand { display: flex; align-items: center; gap: 0.75rem; text-decoration: none; color: var(--text); font-weight: 700; font-size: 1.25rem; }
+        .brand i { color: var(--primary); font-size: 1.5rem; }
+        .container { max-width: 900px; margin: 2rem auto; padding: 0 1.5rem; flex: 1; }
+        .back-link { display: inline-flex; align-items: center; gap: 0.5rem; color: var(--text2); text-decoration: none; font-size: 0.9rem; margin-bottom: 1.5rem; transition: color 0.2s; }
+        .back-link:hover { color: var(--text); }
+
+        /* Progress bar */
+        .progress-bar { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; }
+        .progress-track { flex: 1; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, var(--primary), var(--purple)); border-radius: 3px; transition: width 0.3s ease; }
+        .progress-text { font-size: 0.85rem; color: var(--text2); min-width: 60px; text-align: right; }
+
+        /* Card flip */
+        .card-scene { perspective: 1200px; width: 100%; max-width: 700px; margin: 0 auto; cursor: pointer; }
+        .card-body { width: 100%; min-height: 350px; position: relative; transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1); transform-style: preserve-3d; }
+        .card-body.is-flipped { transform: rotateY(180deg); }
+        .card-face { position: absolute; inset: 0; backface-visibility: hidden; border-radius: 16px; background: var(--card); border: 1px solid var(--border); padding: 2.5rem; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
+        .card-face--back { transform: rotateY(180deg); }
+        .card-face .label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text2); margin-bottom: 1rem; }
+        .card-face .content { font-size: 1.2rem; line-height: 1.6; font-weight: 500; }
+        .card-face--back .content { color: var(--success); }
+        .card-face .hint { font-size: 0.8rem; color: var(--text2); margin-top: 1.5rem; }
+
+        /* Controls */
+        .controls { display: flex; justify-content: center; align-items: center; gap: 1.5rem; margin-top: 2rem; }
+        .ctrl-btn { width: 50px; height: 50px; border-radius: 50%; border: 1px solid var(--border); background: rgba(255,255,255,0.05); color: var(--text); font-size: 1.1rem; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
+        .ctrl-btn:hover:not(:disabled) { background: rgba(255,255,255,0.1); border-color: var(--primary); }
+        .ctrl-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+        .ctrl-btn--primary { background: var(--primary); border-color: var(--primary); width: auto; padding: 0 1.5rem; border-radius: 10px; font-weight: 600; font-size: 0.9rem; }
+        .kbd { display: inline-block; padding: 0.15rem 0.5rem; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; font-size: 0.75rem; font-family: monospace; color: var(--text2); }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="navbar">
+            <a href="/" class="brand">
+                <i class="fa-solid fa-brain-circuit"></i>
+                <span>StudyMind AI</span>
+            </a>
+        </div>
+    </header>
+
+    <div class="container">
+        <a href="{% url 'pdf_action' pdf.id %}" class="back-link"><i class="fa-solid fa-arrow-left"></i> Back to Actions</a>
+
+        <div style="text-align:center; margin-bottom:1rem;">
+            <h2 style="font-size:1.2rem;">Flashcards — {{ pdf.file.name }}</h2>
+            <p style="color:var(--text2); font-size:0.85rem; margin-top:0.25rem;">
+                <span class="kbd">←</span> <span class="kbd">→</span> to navigate &nbsp;|&nbsp;
+                <span class="kbd">Space</span> to flip
+            </p>
+        </div>
+
+        <div class="progress-bar">
+            <div class="progress-track">
+                <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+            </div>
+            <div class="progress-text" id="progressText">1 / 1</div>
+        </div>
+
+        <div class="card-scene" id="cardScene">
+            <div class="card-body" id="cardBody">
+                <div class="card-face card-face--front">
+                    <div class="label">Question</div>
+                    <div class="content" id="frontContent">Loading...</div>
+                    <div class="hint">Click or press Space to reveal answer</div>
+                </div>
+                <div class="card-face card-face--back">
+                    <div class="label">Answer</div>
+                    <div class="content" id="backContent">Loading...</div>
+                    <div class="hint">Click or press Space to see question</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="ctrl-btn" id="prevBtn" title="Previous (←)">
+                <i class="fa-solid fa-chevron-left"></i>
+            </button>
+            <button class="ctrl-btn ctrl-btn--primary" id="flipBtn">Flip Card</button>
+            <button class="ctrl-btn" id="nextBtn" title="Next (→)">
+                <i class="fa-solid fa-chevron-right"></i>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const cards = [
+            {% for card in cards %}
+                { front: {{ card.front|escapejs }}, back: {{ card.back|escapejs }} }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ];
+
+        let currentIndex = 0;
+        let isFlipped = false;
+
+        function renderCard() {
+            const card = cards[currentIndex];
+            document.getElementById('frontContent').textContent = card.front;
+            document.getElementById('backContent').textContent = card.back;
+
+            const progress = ((currentIndex + 1) / cards.length) * 100;
+            document.getElementById('progressFill').style.width = progress + '%';
+            document.getElementById('progressText').textContent = (currentIndex + 1) + ' / ' + cards.length;
+
+            document.getElementById('prevBtn').disabled = currentIndex === 0;
+            document.getElementById('nextBtn').disabled = currentIndex === cards.length - 1;
+
+            // Reset flip
+            isFlipped = false;
+            document.getElementById('cardBody').classList.remove('is-flipped');
+        }
+
+        function flipCard() {
+            isFlipped = !isFlipped;
+            document.getElementById('cardBody').classList.toggle('is-flipped');
+        }
+
+        function nextCard() {
+            if (currentIndex < cards.length - 1) {
+                currentIndex++;
+                renderCard();
+            }
+        }
+
+        function prevCard() {
+            if (currentIndex > 0) {
+                currentIndex--;
+                renderCard();
+            }
+        }
+
+        // Event listeners
+        document.getElementById('cardScene').addEventListener('click', flipCard);
+        document.getElementById('flipBtn').addEventListener('click', flipCard);
+        document.getElementById('nextBtn').addEventListener('click', nextCard);
+        document.getElementById('prevBtn').addEventListener('click', prevCard);
+
+        // Keyboard navigation
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'ArrowRight') nextCard();
+            else if (e.key === 'ArrowLeft') prevCard();
+            else if (e.key === ' ') { e.preventDefault(); flipCard(); }
+        });
+
+        // Initial render
+        renderCard();
+    </script>
+</body>
+</html>

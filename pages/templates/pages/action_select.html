@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudyMind AI — Choose Your Study Mode</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+            --card: rgba(30, 41, 59, 0.7);
+            --border: rgba(255,255,255,0.1);
+            --primary: #6366f1;
+            --text: #f8fafc;
+            --text2: #94a3b8;
+            --success: #10b981;
+            --purple: #8b5cf6;
+            --amber: #f59e0b;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        header { border-bottom: 1px solid var(--border); background: rgba(15,23,42,0.8); backdrop-filter: blur(12px); position: sticky; top: 0; z-index: 100; padding: 1rem 2rem; width: 100%; }
+        .navbar { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+        .brand { display: flex; align-items: center; gap: 0.75rem; text-decoration: none; color: var(--text); font-weight: 700; font-size: 1.25rem; }
+        .brand i { color: var(--primary); font-size: 1.5rem; }
+        .main { max-width: 900px; width: 100%; padding: 3rem 1.5rem; }
+        .file-info { text-align: center; margin-bottom: 2rem; }
+        .file-info .icon { font-size: 2rem; color: var(--primary); margin-bottom: 0.75rem; }
+        .file-info h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }
+        .file-info p { color: var(--text2); font-size: 0.9rem; }
+        .actions-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+        @media (max-width: 700px) { .actions-grid { grid-template-columns: 1fr; } }
+        .action-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 2rem; text-align: center; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s; text-decoration: none; color: var(--text); display: flex; flex-direction: column; align-items: center; }
+        .action-card:hover { transform: translateY(-4px); box-shadow: 0 12px 30px rgba(0,0,0,0.4); border-color: rgba(99,102,241,0.5); }
+        .action-card .icon-wrap { width: 72px; height: 72px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; margin-bottom: 1.25rem; }
+        .action-card h3 { font-size: 1.15rem; margin-bottom: 0.5rem; }
+        .action-card p { font-size: 0.85rem; color: var(--text2); line-height: 1.5; margin-bottom: 1.25rem; }
+        .action-card .btn { padding: 0.6rem 1.5rem; border-radius: 8px; font-weight: 600; font-size: 0.85rem; border: none; color: white; cursor: pointer; }
+        .back-link { display: inline-flex; align-items: center; gap: 0.5rem; color: var(--text2); text-decoration: none; font-size: 0.9rem; margin-top: 2rem; transition: color 0.2s; }
+        .back-link:hover { color: var(--text); }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="navbar">
+            <a href="/" class="brand">
+                <i class="fa-solid fa-brain-circuit"></i>
+                <span>StudyMind AI</span>
+            </a>
+        </div>
+    </header>
+
+    <div class="main">
+        <div class="file-info">
+            <div class="icon"><i class="fa-solid fa-file-circle-check"></i></div>
+            <h2>{{ pdf.file.name }}</h2>
+            <p>PDF processed successfully. Choose your study mode below.</p>
+        </div>
+
+        <div class="actions-grid">
+            <a href="{% url 'summary' pdf.id %}" class="action-card">
+                <div class="icon-wrap" style="background: rgba(99,102,241,0.15);">
+                    <i class="fa-solid fa-file-lines" style="color: var(--primary);"></i>
+                </div>
+                <h3>Create Summary</h3>
+                <p>Auto-generated TL;DR, key concepts, and terminology definitions from your document.</p>
+                <span class="btn" style="background: linear-gradient(135deg, var(--primary), var(--purple));">View Summary</span>
+            </a>
+
+            <a href="{% url 'flashcards' pdf.id %}" class="action-card">
+                <div class="icon-wrap" style="background: rgba(139,92,246,0.15);">
+                    <i class="fa-solid fa-clone" style="color: var(--purple);"></i>
+                </div>
+                <h3>Create Flashcards</h3>
+                <p>20 interactive flashcards with click-to-flip and keyboard navigation.</p>
+                <span class="btn" style="background: linear-gradient(135deg, var(--purple), #a78bfa);">Start Review</span>
+            </a>
+
+            <a href="{% url 'adaptive_test' pdf.id %}" class="action-card">
+                <div class="icon-wrap" style="background: rgba(16,185,129,0.15);">
+                    <i class="fa-solid fa-chart-line" style="color: var(--success);"></i>
+                </div>
+                <h3>Take Adaptive Test</h3>
+                <p>Dynamic difficulty quiz that escalates based on your performance level.</p>
+                <span class="btn" style="background: linear-gradient(135deg, var(--success), #34d399);">Begin Test</span>
+            </a>
+        </div>
+
+        <a href="/" class="back-link"><i class="fa-solid fa-arrow-left"></i> Back to Dashboard</a>
+    </div>
+</body>
+</html>
