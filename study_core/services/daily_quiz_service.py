@@ -2,11 +2,18 @@
 Daily Quiz Service — Adaptive GK & Current Affairs generation via Gemini.
 
 Quiz composition per calendar day (one DailyQuiz row):
-- 5 Current Affairs questions  (category='current_affairs') — universally
+- 5 Current Affairs questions (category='current_affairs') — universally
   identical for every user that day.
-- 15 General Knowledge questions (category='gk'), 5 per static difficulty
+- 15 General Knowledge questions (category='gk'), 5 per difficulty
   tier (easy / medium / hard). The serving endpoint returns the 5 GK
-  questions matching the user's recorded gk_skill_tier.
+  questions matching the user's optimal tier, computed by the 1PL IRT
+  engine (see services/irt_engine.py) from their persistent Elo skill
+  rating so their expected success rate stays near 70%.
+
+The legacy rule-based tier promotion/demotion (≥4/5 → up, ≤1/5 → down)
+has been replaced: after each completion, the user's Elo is nudged by the
+online IRT update for every answered GK question, so the next day's tier
+naturally tracks their performance.
 
 Uses structured Gemini output (response_schema) for robust JSON parsing.
 """
@@ -19,15 +26,16 @@ from django.db import transaction
 from pages.utils.llm_generator import _call_gemini_structured
 
 from study_core.models import DailyQuiz, DailyQuestion, UserProfile
+from study_core.services import irt_engine as irt
 
 # ─── Composition constants ─────────────────────────────────
 CA_COUNT = 5                 # Current Affairs questions (universal)
 GK_PER_TIER = 5              # GK questions per difficulty tier
 TIER_ORDER = ['easy', 'medium', 'hard']
 
-# Tier progression thresholds (per 5 GK questions served)
-PROMOTE_THRESHOLD = 4        # >= 4/5 correct → move up one tier
-DEMOTE_THRESHOLD = 1         # <= 1/5 correct → move down one tier
+# Online learning rate applied to the user's Elo per answered GK question
+# after a daily quiz is completed (drives tomorrow's tier via θ).
+GK_LEARNING_RATE = 0.15
 
 
 # ─── Gemini JSON schema (structured output) ─────────────────
@@ -150,19 +158,21 @@ Output ONLY the JSON array. No commentary, no markdown."""
         })
 
     # Verify composition: 5 CA + 15 GK split 5/5/5
-    ca_questions = [q for q in normalized if q["category"] == "current_affairs"]
-    gk_questions = [q for q in normalized if q["category"] == "gk"]
+    ca_count = sum(1 for q in normalized if q["category"] == "current_affairs")
+    gk_counts = {
+        tier: sum(1 for q in normalized if q["category"] == "gk" and q["difficulty_tier"] == tier)
+        for tier in TIER_ORDER
+    }
 
-    if len(ca_questions) != CA_COUNT:
+    if ca_count != CA_COUNT:
         raise ValueError(
-            f"Expected {CA_COUNT} Current Affairs questions, got {len(ca_questions)}"
+            f"Expected {CA_COUNT} Current Affairs questions, got {ca_count}"
         )
 
     for tier in TIER_ORDER:
-        count = sum(1 for q in gk_questions if q["difficulty_tier"] == tier)
-        if count != GK_PER_TIER:
+        if gk_counts[tier] != GK_PER_TIER:
             raise ValueError(
-                f"Expected {GK_PER_TIER} GK questions for tier '{tier}', got {count}"
+                f"Expected {GK_PER_TIER} GK questions for tier '{tier}', got {gk_counts[tier]}"
             )
 
     return normalized
@@ -238,7 +248,7 @@ def ensure_daily_quiz_for_date(
 def questions_for_user(quiz: DailyQuiz, tier: str) -> List[DailyQuestion]:
     """
     The 10 questions a user sees: 5 universal Current Affairs + the 5 GK
-    questions matching their skill tier. Ordered CA first, then GK.
+    questions matching their tier. Ordered CA first, then GK.
     """
     from django.db.models import Q
 
@@ -250,11 +260,31 @@ def questions_for_user(quiz: DailyQuiz, tier: str) -> List[DailyQuestion]:
     )
 
 
-def _shift_tier(tier: str, delta: int) -> str:
-    """Move one step up (+1) or down (-1) the easy→medium→hard ladder."""
-    index = TIER_ORDER.index(tier)
-    new_index = min(len(TIER_ORDER) - 1, max(0, index + delta))
-    return TIER_ORDER[new_index]
+def select_gk_tier(profile: UserProfile) -> str:
+    """Optimal GK tier for a profile, from their Elo via the IRT engine.
+
+    θ = f(elo); the tier whose expected success rate is closest to the 0.70
+    target wins (see irt_engine.select_tier_for_ability).
+    """
+    theta = irt.ability_from_elo(profile.elo_rating)
+    return irt.select_tier_for_ability(theta)
+
+
+def served_questions_for_user(quiz: DailyQuiz, profile: UserProfile) -> List[DailyQuestion]:
+    """
+    The 10 questions to show this user, with the tier decided by their Elo.
+
+    Also persists the chosen tier back onto ``profile.gk_skill_tier`` so the
+    UI badge / leaderboard reflect the current adaptive state. The tier is
+    stable within a single day unless the user's Elo changes (it cannot
+    mid-day), so the same call is safe from the /today/, /check/ and
+    /submit/ endpoints.
+    """
+    tier = select_gk_tier(profile)
+    if profile.gk_skill_tier != tier:
+        profile.gk_skill_tier = tier
+        profile.save(update_fields=['gk_skill_tier'])
+    return questions_for_user(quiz, tier)
 
 
 class QuizAnswerConflict(Exception):
@@ -306,14 +336,25 @@ def recorded_answers_for_user(quiz, user):
     )
 
 
-def apply_quiz_completion(profile: UserProfile, gk_correct: int, completed_date) -> None:
+def apply_quiz_completion(
+    profile: UserProfile,
+    gk_answers: List[tuple],
+    completed_date,
+) -> None:
     """
     Update a profile after a daily quiz submission, in place (no save):
 
     1. Streak: if the user also completed yesterday, current_streak += 1;
        otherwise the streak resets to 1. longest_streak is kept in sync.
-    2. Skill tier: GK performance moves the tier up/down the ladder:
-       >= 4/5 correct promotes, <= 1/5 correct demotes, otherwise unchanged.
+    2. Adaptive ability: for every answered GK question, advance the
+       persistent Elo rating by the online IRT update
+       (θ ← θ + LR·(S − P), converted back to Elo). Because the next day's
+       tier is derived from Elo, this is what makes tomorrow's quiz reflect
+       today's performance — replacing the old rule-based promotion/demotion.
+
+    Args:
+        gk_answers: List of (tier, is_correct) tuples, one per answered
+            GK question (excludes universal Current-Affairs items).
     """
     from datetime import timedelta
 
@@ -332,8 +373,12 @@ def apply_quiz_completion(profile: UserProfile, gk_correct: int, completed_date)
     profile.longest_streak = max(profile.longest_streak, profile.current_streak)
     profile.last_quiz_completed_date = today
 
-    # Adaptive difficulty: adjust GK skill tier from today's GK performance.
-    if gk_correct >= PROMOTE_THRESHOLD:
-        profile.gk_skill_tier = _shift_tier(profile.gk_skill_tier, +1)
-    elif gk_correct <= DEMOTE_THRESHOLD:
-        profile.gk_skill_tier = _shift_tier(profile.gk_skill_tier, -1)
+    # Adaptive ability: sequential online IRT update per GK answer, folded
+    # back into the persistent Elo rating (which drives tomorrow's tier).
+    for tier, is_correct in gk_answers:
+        theta = irt.ability_from_elo(profile.elo_rating)
+        b = irt.difficulty_from_tier(tier)
+        theta_new = irt.update_theta(
+            theta, b, is_correct, learning_rate=GK_LEARNING_RATE
+        )
+        profile.elo_rating = irt.elo_from_ability(theta_new)

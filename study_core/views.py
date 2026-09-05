@@ -591,7 +591,8 @@ from .models import (
 )
 from .services.daily_quiz_service import (
     ensure_daily_quiz_for_date,
-    questions_for_user,
+    served_questions_for_user,
+    select_gk_tier,
     apply_quiz_completion,
     record_daily_quiz_answer,
     recorded_answers_for_user,
@@ -613,7 +614,8 @@ class DailyQuizTodayView(APIView):
 
     Returns today's quiz adapted to the requesting user's profile:
     5 universally-identical Current Affairs questions + the 5 GK questions
-    matching their gk_skill_tier. Includes streak stats and the mini leaderboard.
+    matching their IRT-selected tier (θ from Elo, target 70% success).
+    Includes streak stats and the mini leaderboard.
     Does NOT expose correct_index or explanation.
     """
 
@@ -628,15 +630,17 @@ class DailyQuizTodayView(APIView):
 
         user = _get_user(request)
         profile = _get_or_create_profile(user)
-        tier = profile.gk_skill_tier
 
         # Check if user already completed today's quiz
         existing_session = DailyQuizSession.objects.filter(
             user=user, quiz=quiz
         ).first()
 
-        # Serve 5 universal CA + 5 tier-matched GK (sanitized — no answers)
-        served = questions_for_user(quiz, tier)
+        # Serve 5 universal CA + 5 IRT-tier-matched GK (sanitized — no
+        # answers). served_questions_for_user picks the tier from the user's
+        # Elo (θ) and syncs profile.gk_skill_tier to the chosen tier.
+        served = served_questions_for_user(quiz, profile)
+        tier = profile.gk_skill_tier
         sanitized = [
             {
                 'id': str(q.id),
@@ -770,8 +774,8 @@ class DailyQuizCheckView(APIView):
             )
 
         # Only questions actually served to this user can be answered (5
-        # universal CA + the 5 GK questions matching their skill tier).
-        served = questions_for_user(quiz, profile.gk_skill_tier)
+        # universal CA + the 5 GK questions matching their IRT-chosen tier).
+        served = served_questions_for_user(quiz, profile)
         question = next(
             (q for q in served if str(q.id) == question_id), None
         )
@@ -845,13 +849,14 @@ class DailyQuizSubmitView(APIView):
 
         # Grade ONLY the user's served questions (5 universal CA + their 5 GK),
         # so users on different difficulty tiers can't answer out-of-tier items.
-        tier = profile.gk_skill_tier
-        served = questions_for_user(quiz, tier)
+        # served_questions_for_user picks the tier from Elo via the IRT engine.
+        served = served_questions_for_user(quiz, profile)
         questions = {str(q.id): q for q in served}
 
         score = 0
         gk_correct = 0
         processed_answers = []
+        gk_answers = []  # (tier, is_correct) per answered GK question → Elo nudge
 
         # New flow: answers were locked one-by-one via /daily-quiz/check/, so
         # grade exclusively from the recorded rows (the payload carries no
@@ -874,6 +879,9 @@ class DailyQuizSubmitView(APIView):
                     'selected_index': answer.selected_index,
                     'is_correct': is_correct,
                 })
+
+                if q.category == DailyQuestion.Category.GK:
+                    gk_answers.append((q.difficulty_tier, is_correct))
         else:
             # Legacy fallback: grade from the submitted payload (older clients
             # that answer the whole quiz without per-question checks).
@@ -900,6 +908,9 @@ class DailyQuizSubmitView(APIView):
                     'is_correct': is_correct,
                 })
 
+                if q.category == DailyQuestion.Category.GK:
+                    gk_answers.append((q.difficulty_tier, is_correct))
+
         today = timezone.localdate()
 
         # Save session + update streak/tier atomically (unique user+quiz row
@@ -913,7 +924,10 @@ class DailyQuizSubmitView(APIView):
                     total_time_sec=total_time_sec,
                     answers=processed_answers,
                 )
-                apply_quiz_completion(profile, gk_correct, today)
+                apply_quiz_completion(profile, gk_answers, today)
+                # Re-derive the tier from the updated Elo so the response (and
+                # the profile badge) reflect the new adaptive state immediately.
+                profile.gk_skill_tier = select_gk_tier(profile)
                 profile.save()
         except IntegrityError:
             return Response(

@@ -34,7 +34,8 @@ class UserProfile(models.Model):
         choices=Avatar.choices,
         default=Avatar.OWL,
     )
-    elo_rating = models.FloatField(default=1200.0)
+    # 0-based Elo scale: every new learner starts at 0.
+    elo_rating = models.FloatField(default=0.0)
     total_questions_answered = models.IntegerField(default=0)
 
     # ── Daily Quiz gamification ──
@@ -120,7 +121,8 @@ class Question(models.Model):
     options = models.JSONField(default=list)  # List of exactly 4 strings
     correct_index = models.IntegerField(default=0)  # 0-3
     explanation = models.TextField(blank=True, default='')
-    difficulty_rating = models.FloatField(default=1200.0)
+    # 0-based Elo-style difficulty rating (default = neutral / unknown).
+    difficulty_rating = models.FloatField(default=0.0)
     times_served = models.IntegerField(default=0)
     times_correct = models.IntegerField(default=0)
 
@@ -172,7 +174,7 @@ class TestSession(models.Model):
         blank=True,
         related_name='sessions'
     )
-    start_elo = models.FloatField(default=1200.0)
+    start_elo = models.FloatField(default=0.0)  # 0-based Elo scale
     end_elo = models.FloatField(null=True, blank=True)
     is_completed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
@@ -200,8 +202,8 @@ class SessionResponse(models.Model):
     selected_index = models.IntegerField()  # 0-3
     is_correct = models.BooleanField()
     time_taken_sec = models.FloatField(default=0.0)
-    user_elo_after = models.FloatField(default=1200.0)
-    question_elo_after = models.FloatField(default=1200.0)
+    user_elo_after = models.FloatField(default=0.0)  # 0-based Elo scale
+    question_elo_after = models.FloatField(default=0.0)
 
     def __str__(self):
         return f"Response in Session {self.session.id}"
@@ -239,7 +241,8 @@ class DailyQuestion(models.Model):
       every user — these are universally shared each day.
     - 15 GK questions (category='gk'), 5 per static difficulty tier
       (easy/medium/hard). The /today/ endpoint serves the 5 GK questions
-      matching the requesting user's gk_skill_tier.
+      matching the user's optimal tier, chosen by the 1PL IRT engine from
+      their persistent Elo rating and synced onto gk_skill_tier.
     """
 
     class Category(models.TextChoices):

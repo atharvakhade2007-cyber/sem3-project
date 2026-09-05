@@ -15,7 +15,7 @@ always matches the rating update):
     R'_A = R_A + K * (S_A - E_A)
 
     K = 40  provisional — fewer than 20 duels played
-    K = 10  high tier    — 20+ duels and rating > 2000
+    K = 10  high tier    — 20+ duels and rating > 800 (0-based scale)
     K = 20  standard     — otherwise
 
     S_A: 1.0 win, 0.5 draw, 0.0 loss.
@@ -36,7 +36,9 @@ K_PROVISIONAL = 40.0
 K_STANDARD = 20.0
 K_HIGH_TIER = 10.0
 PROVISIONAL_MIN_DUELS = 20   # fewer than this many duels → provisional K
-HIGH_TIER_RATING = 2000.0    # above this rating → reduced high-tier K
+# Ratings are 0-based; 800 is the 0-anchored equivalent of the old 2000
+# cutoff on the previous 1200-centered scale (2000 − 1200 = 800).
+HIGH_TIER_RATING = 800.0     # above this rating → reduced high-tier K
 TIME_DRAW_TOLERANCE_SEC = 1.0  # equal scores within 1s → draw
 
 
@@ -57,7 +59,8 @@ def k_factor(duels_played: int, rating: float) -> float:
     Dynamic K-factor:
 
     - 40 while provisional (fewer than 20 completed duels)
-    - 10 once the player is established (20+ duels) AND above 2000 rating
+    - 10 once the player is established (20+ duels) AND above 800 rating
+      (0-based scale; equivalent of the old 2000 cutoff)
     - 20 otherwise (standard established players)
     """
     if duels_played < PROVISIONAL_MIN_DUELS:

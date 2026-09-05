@@ -156,7 +156,9 @@ class AdaptiveEloEngine:
     @staticmethod
     def get_difficulty_label(difficulty_rating: float) -> str:
         """
-        Convert a numerical difficulty rating to a human-readable label.
+        Convert a numerical difficulty rating (0-based Elo scale) to a label.
+
+        Thresholds are the 0-anchored equivalents of the old 1100/1500 cutoffs.
 
         Args:
             difficulty_rating: Elo-style difficulty rating
@@ -164,8 +166,8 @@ class AdaptiveEloEngine:
         Returns:
             'easy', 'medium', or 'hard'
         """
-        if difficulty_rating < 1100:
+        if difficulty_rating < -100:
             return 'easy'
-        elif difficulty_rating < 1500:
+        elif difficulty_rating < 300:
             return 'medium'
         return 'hard'

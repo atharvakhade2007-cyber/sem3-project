@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { updateProfile, changePassword } from '../api';
-import { AVATARS, TIER_LABELS } from '../constants';
+import { AVATARS, TIER_LABELS, eloLevelName } from '../constants';
 
 const TABS = [
   { key: 'overview', label: '📊 Overview' },
@@ -207,8 +207,8 @@ export default function Profile() {
           }}>
             <StatCard icon="🔥" label="Current Streak" value={user.current_streak ?? 0} />
             <StatCard icon="🏆" label="Longest Streak" value={user.longest_streak ?? 0} />
-            <StatCard icon="🎯" label="Skill Level" value={TIER_LABELS[user.gk_skill_tier] || user.gk_skill_tier || '—'} />
-            <StatCard icon="📈" label="Elo Rating" value={Math.round(user.elo_rating ?? 1200)} />
+            <StatCard icon="🎯" label="Level" value={eloLevelName(user.elo_rating ?? 0)} />
+            <StatCard icon="📈" label="Elo Rating" value={Math.round(user.elo_rating ?? 0)} />
             <StatCard icon="📝" label="Quizzes Completed" value={user.total_quizzes_completed ?? 0} />
             <StatCard icon="❓" label="Questions Answered" value={user.total_questions_answered ?? 0} />
           </div>

@@ -61,6 +61,10 @@ def _snapshot_from_responses(responses):
             'question_text': q.question_text,
             'options': list(q.options or []),
             'correct_index': q.correct_index,
+            # Explanation is snapshotted too so the challenged user's post-duel
+            # review can explain the right answer (old duels simply fall back
+            # to an empty string).
+            'explanation': getattr(q, 'explanation', '') or '',
         })
         question_ids.append(str(q.id))
         if r.is_correct:
@@ -410,7 +414,9 @@ class ChallengeSubmitView(APIView):
                 'correct_index': q['correct_index'],
                 'selected_index': selected,
                 'is_correct': is_correct,
-                'explanation': '',
+                # Snapshotted at duel creation; empty for duels created before
+                # explanations were stored.
+                'explanation': q.get('explanation', '') or '',
             })
 
         # Winner resolution shared with the rating engine so the displayed

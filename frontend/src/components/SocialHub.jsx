@@ -72,6 +72,150 @@ const rowStyle = {
   padding: '0.6rem 0.25rem', borderBottom: '1px solid var(--card-border)',
 };
 
+// ─── Full-screen duel arena ───────────────────────
+// Playing an incoming duel takes over the whole viewport (vs. the small
+// social-hub modal) so questions get room to breathe; the result screen with
+// the detailed answer review lives in the same full-screen space.
+
+function DuelArena({ challenge, onExit, children }) {
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 300,
+      background: (
+        'radial-gradient(1100px 650px at 15% -10%, rgba(99,102,241,0.25), transparent 60%),' +
+        'radial-gradient(900px 600px at 110% 115%, rgba(139,92,246,0.2), transparent 55%),' +
+        'var(--bg)'
+      ),
+      display: 'flex', flexDirection: 'column',
+    }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: '0.75rem',
+        padding: '0.9rem 1.25rem',
+        background: 'rgba(0,0,0,0.3)',
+        borderBottom: '1px solid var(--card-border)',
+      }}>
+        <div style={{ fontSize: '1rem', fontWeight: 800, flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          ⚔️ Duel vs <span style={{ color: '#a5b4fc' }}>{challenge.challenger_username}</span>
+        </div>
+        <button
+          onClick={onExit}
+          title="Exit duel"
+          style={{
+            background: 'none', border: 'none', color: 'var(--text-secondary)',
+            fontSize: '1.3rem', cursor: 'pointer', lineHeight: 1, padding: '0.2rem 0.5rem',
+          }}
+        >✕</button>
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div style={{ width: '100%', maxWidth: 760, margin: '0 auto', padding: '1.5rem 1.25rem 3rem' }}>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Detailed answer review (post-duel) ────────────
+// One card per duel question: the user's pick vs. the correct answer plus the
+// snapshotted explanation, so a finished duel doubles as a study moment.
+
+const OPTION_KEYS = ['A', 'B', 'C', 'D'];
+
+function DuelReviewItem({ item, index }) {
+  const correct = item.is_correct;
+  return (
+    <div style={{
+      border: '1px solid var(--card-border)', borderRadius: 14,
+      background: 'var(--card-bg)', padding: '1rem 1.1rem',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.65rem', flexWrap: 'wrap' }}>
+        <span style={{
+          background: 'rgba(99,102,241,0.18)', color: '#a5b4fc', fontWeight: 800,
+          fontSize: '0.75rem', padding: '0.2rem 0.6rem', borderRadius: 6,
+        }}>Q{index + 1}</span>
+        <span style={{
+          fontSize: '0.75rem', fontWeight: 800, padding: '0.2rem 0.6rem', borderRadius: 20,
+          color: correct ? 'var(--success)' : 'var(--danger)',
+          border: `1px solid ${correct ? 'var(--success)' : 'var(--danger)'}55`,
+          background: correct ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
+        }}>
+          {correct ? '✓ Correct' : '✗ Incorrect'}
+        </span>
+        {!correct && (
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            Correct answer: {OPTION_KEYS[item.correct_index]}
+          </span>
+        )}
+      </div>
+
+      <div style={{ fontSize: '0.95rem', lineHeight: 1.5, fontWeight: 600, marginBottom: '0.7rem' }}>
+        {item.question_text}
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+        {(item.options || []).map((opt, i) => {
+          const isCorrectOpt = i === item.correct_index;
+          const isSelected = i === item.selected_index;
+          let bg = 'rgba(255,255,255,0.03)';
+          let border = 'var(--card-border)';
+          let badgeBg = 'rgba(255,255,255,0.08)';
+          let badgeColor = 'var(--text-secondary)';
+          if (isCorrectOpt) {
+            bg = 'rgba(16,185,129,0.1)';
+            border = 'rgba(16,185,129,0.45)';
+            badgeBg = '#10b981';
+            badgeColor = '#fff';
+          }
+          if (isSelected && !isCorrectOpt) {
+            bg = 'rgba(239,68,68,0.1)';
+            border = 'rgba(239,68,68,0.5)';
+            badgeBg = '#ef4444';
+            badgeColor = '#fff';
+          }
+          return (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'center', gap: '0.65rem',
+              padding: '0.55rem 0.8rem', borderRadius: 9, fontSize: '0.88rem',
+              background: bg, border: `1px solid ${border}`, color: 'var(--text)',
+            }}>
+              <span style={{
+                width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '0.72rem', fontWeight: 800, background: badgeBg, color: badgeColor,
+              }}>{OPTION_KEYS[i]}</span>
+              <span style={{ flex: 1, minWidth: 0 }}>{opt}</span>
+              {isSelected && (
+                <span style={{
+                  fontSize: '0.7rem', fontWeight: 800, flexShrink: 0,
+                  color: isCorrectOpt ? 'var(--success)' : 'var(--danger)',
+                }}>
+                  {isCorrectOpt ? '✓ Your answer' : '✗ Your answer'}
+                </span>
+              )}
+              {!isSelected && isCorrectOpt && (
+                <span style={{ fontSize: '0.7rem', fontWeight: 800, flexShrink: 0, color: 'var(--success)' }}>
+                  ✓ Correct
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {item.explanation && (
+        <div style={{
+          marginTop: '0.7rem', fontSize: '0.84rem', lineHeight: 1.55,
+          color: 'var(--text-secondary)', padding: '0.6rem 0.8rem',
+          background: 'rgba(99,102,241,0.08)', borderLeft: '3px solid #6366f1',
+          borderRadius: '0 8px 8px 0',
+        }}>
+          {item.explanation}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Duel player (answering screen) ───────────────
 
 function DuelPlayer({ challenge, onDone }) {
@@ -127,44 +271,83 @@ function DuelPlayer({ challenge, onDone }) {
     }
   };
 
-  // ── Result screen
+  // ── Result screen (score summary + detailed answer review)
   if (result) {
     const won = result.verdict === 'won';
     const drew = result.verdict === 'draw';
+    const review = result.review || [];
+    const correctCount = review.filter(r => r.is_correct).length;
     return (
-      <div style={{ textAlign: 'center', padding: '1rem 0.5rem' }}>
-        <div style={{ fontSize: '2.6rem', marginBottom: '0.5rem' }}>
-          {won ? '🏆' : drew ? '🤝' : '😞'}
+      <div>
+        <div style={{ textAlign: 'center', padding: '0.5rem 0.5rem 1rem' }}>
+          <div style={{ fontSize: '2.8rem', marginBottom: '0.5rem' }}>
+            {won ? '🏆' : drew ? '🤝' : '😞'}
+          </div>
+          <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem' }}>{result.verdict_text}</h3>
+          <div style={{
+            display: 'flex', justifyContent: 'center', gap: '2.5rem',
+            marginBottom: '0.9rem',
+          }}>
+            <div>
+              <div style={{ fontSize: '1.6rem', fontWeight: 800 }}>{result.challenged_score}</div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>You</div>
+              <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>{fmtTime(result.challenged_time_seconds)}</div>
+            </div>
+            <div style={{ fontSize: '1.5rem', color: 'var(--text-secondary)', alignSelf: 'center' }}>vs</div>
+            <div>
+              <div style={{ fontSize: '1.6rem', fontWeight: 800 }}>{result.challenger_score}</div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>{challenge.challenger_username}</div>
+              <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>{fmtTime(result.challenger_time_seconds)}</div>
+            </div>
+          </div>
+          {result.elo_change != null && result.elo_after != null && (
+            <div style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+              🎯 Skill rating →{' '}
+              <strong style={{ color: '#fbbf24' }}>{Math.round(result.elo_after)}</strong>{' '}
+              <span style={{ fontWeight: 800, color: result.elo_change >= 0 ? '#34d399' : '#f87171' }}>
+                ({result.elo_change >= 0 ? '+' : ''}{result.elo_change})
+              </span>
+            </div>
+          )}
+          <button
+            onClick={onDone}
+            style={{ ...btn('linear-gradient(135deg, #6366f1, #8b5cf6)'), padding: '0.6rem 1.8rem', fontSize: '0.9rem' }}
+          >
+            Back to Duels
+          </button>
         </div>
-        <h3 style={{ marginBottom: '1rem', fontSize: '1.15rem' }}>{result.verdict_text}</h3>
+
+        {/* Detailed answers — every question with the correct answer + explanation */}
         <div style={{
-          display: 'flex', justifyContent: 'center', gap: '2.5rem',
-          marginBottom: '1.25rem',
+          display: 'flex', alignItems: 'baseline', gap: '0.6rem',
+          margin: '0.5rem 0 0.9rem', paddingTop: '1.1rem',
+          borderTop: '1px solid var(--card-border)',
         }}>
-          <div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 800 }}>{result.challenged_score}</div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>You</div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{fmtTime(result.challenged_time_seconds)}</div>
-          </div>
-          <div style={{ fontSize: '1.5rem', color: 'var(--text-secondary)', alignSelf: 'center' }}>vs</div>
-          <div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 800 }}>{result.challenger_score}</div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{challenge.challenger_username}</div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{fmtTime(result.challenger_time_seconds)}</div>
-          </div>
+          <h3 style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0 }}>📋 Detailed answers</h3>
+          <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+            {correctCount}/{review.length} correct
+          </span>
         </div>
-        {result.elo_change != null && result.elo_after != null && (
-          <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '1.1rem' }}>
-            🎯 Skill rating →{' '}
-            <strong style={{ color: '#fbbf24' }}>{Math.round(result.elo_after)}</strong>{' '}
-            <span style={{ fontWeight: 800, color: result.elo_change >= 0 ? '#34d399' : '#f87171' }}>
-              ({result.elo_change >= 0 ? '+' : ''}{result.elo_change})
-            </span>
+        {review.length === 0 ? (
+          <p style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '1.5rem 0', fontSize: '0.85rem' }}>
+            No question review available for this duel.
+          </p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+            {review.map((item, i) => (
+              <DuelReviewItem key={item.question_id || i} item={item} index={i} />
+            ))}
           </div>
         )}
-        <button onClick={onDone} style={btn('linear-gradient(135deg, #6366f1, #8b5cf6)')}>
-          Done
-        </button>
+
+        <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
+          <button
+            onClick={onDone}
+            style={{ ...btn('linear-gradient(135deg, #6366f1, #8b5cf6)'), padding: '0.6rem 1.8rem', fontSize: '0.9rem' }}
+          >
+            Back to Duels
+          </button>
+        </div>
       </div>
     );
   }
@@ -366,6 +549,16 @@ export default function SocialHub() {
 
   if (!socialOpen || !me) return null;
 
+  // Playing an incoming duel takes over the whole screen (full-screen arena),
+  // replacing the compact modal until the duel is finished or abandoned.
+  if (activeDuel) {
+    return (
+      <DuelArena challenge={activeDuel} onExit={afterDuel}>
+        <DuelPlayer challenge={activeDuel} onDone={afterDuel} />
+      </DuelArena>
+    );
+  }
+
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 200,
@@ -385,7 +578,7 @@ export default function SocialHub() {
           padding: '1rem 1.25rem', borderBottom: '1px solid var(--card-border)',
         }}>
           <h2 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0 }}>
-            {activeDuel ? '⚔️ Duel' : '🤝 Friends & Duels'}
+            🤝 Friends & Duels
           </h2>
           <button onClick={closeSocial} style={{
             background: 'none', border: 'none', color: 'var(--text-secondary)',
@@ -393,13 +586,7 @@ export default function SocialHub() {
           }}>✕</button>
         </div>
 
-        {/* Active duel player replaces the whole body */}
-        {activeDuel ? (
-          <div style={{ padding: '1.25rem', overflowY: 'auto' }}>
-            <DuelPlayer challenge={activeDuel} onDone={afterDuel} />
-          </div>
-        ) : (
-          <>
+        <>
             {/* Tabs */}
             <div style={{ display: 'flex', gap: '0.35rem', padding: '0.75rem 1.25rem 0', overflowX: 'auto' }}>
               {TABS.map(t => (
@@ -633,7 +820,6 @@ export default function SocialHub() {
 
             </div>
           </>
-        )}
       </div>
     </div>
   );

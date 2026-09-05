@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { startTest, submitAnswer, completeTest } from '../api';
 import { useUi } from '../context/UiContext';
+import { eloLevel } from '../constants';
 
 // ─── State Machine States ──────────────────────
 const STATES = {
@@ -48,7 +49,7 @@ export default function AdaptiveTest({ documentId }) {
     answered: 0,
     correct: 0,
     wrong: 0,
-    elo: 1200,
+    elo: 0, // 0-based Elo — new learners start at 0
     eloChange: 0,
   });
   const [results, setResults] = useState(null);
@@ -198,14 +199,17 @@ export default function AdaptiveTest({ documentId }) {
     return (
       <div style={{ textAlign: 'center', padding: '4rem 2rem' }}>
         <h2 style={{ fontSize: '1.8rem', marginBottom: '0.75rem' }}>Adaptive Test</h2>
-        <p style={{ color: '#94a3b8', maxWidth: 500, margin: '0 auto 2rem', lineHeight: 1.6 }}>
-          This test adapts to your performance. Answer correctly to face harder questions,
-          or drop down if you struggle. Powered by continuous Online Learning Elo.
+        <p style={{ color: '#94a3b8', maxWidth: 540, margin: '0 auto 2rem', lineHeight: 1.6 }}>
+          Every new learner starts at <strong style={{ color: '#f8fafc' }}>0 Elo</strong>.
+          Each answer moves your rating — <span style={{ color: '#34d399' }}>correct answers push it up (+)</span>,
+          <span style={{ color: '#fca5a5' }}> wrong answers pull it down (−)</span> — and the test keeps
+          serving questions at your level. Climb from Beginner to Expert!
         </p>
-        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginBottom: '2rem', flexWrap: 'wrap' }}>
-          <DiffBadge label="easy" /> Easy — 900 Elo seed
-          <DiffBadge label="medium" /> Medium — 1300 Elo seed
-          <DiffBadge label="hard" /> Hard — 1700 Elo seed
+        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginBottom: '2rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <DiffBadge label="easy" />
+          <DiffBadge label="medium" />
+          <DiffBadge label="hard" />
+          <span style={{ color: '#64748b', fontSize: '0.8rem' }}>question difficulty</span>
         </div>
         <button onClick={handleStart} style={{
           padding: '0.875rem 2.5rem',
@@ -250,7 +254,18 @@ export default function AdaptiveTest({ documentId }) {
           }}>
             {results.rating_badge}
           </div>
-          <h2 style={{ fontSize: '1.5rem' }}>Test Complete!</h2>
+          <h2 style={{ fontSize: '1.5rem', marginBottom: '0.35rem' }}>Test Complete!</h2>
+          <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: 0 }}>
+            Elo journey: {Math.round(results.start_elo ?? 0)} → {Math.round(results.end_elo ?? results.final_elo ?? 0)}
+            <span style={{
+              fontWeight: 800, marginLeft: '0.5rem',
+              color: (results.end_elo ?? results.final_elo ?? 0) >= (results.start_elo ?? 0)
+                ? '#34d399' : '#fca5a5',
+            }}>
+              {((results.end_elo ?? results.final_elo ?? 0) >= (results.start_elo ?? 0) ? '+' : '')}
+              {Math.round((results.end_elo ?? results.final_elo ?? 0) - (results.start_elo ?? 0))} Elo
+            </span>
+          </p>
         </div>
 
         {/* Challenge a friend with this exact session */}
@@ -274,14 +289,18 @@ export default function AdaptiveTest({ documentId }) {
           </p>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
           <div style={{ textAlign: 'center', padding: '1rem', background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10 }}>
             <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#10b981' }}>{results.accuracy}%</div>
             <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.25rem' }}>Accuracy</div>
           </div>
           <div style={{ textAlign: 'center', padding: '1rem', background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10 }}>
+            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#94a3b8' }}>{results.start_elo?.toFixed(0)}</div>
+            <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.25rem' }}>Start Elo</div>
+          </div>
+          <div style={{ textAlign: 'center', padding: '1rem', background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10 }}>
             <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#f59e0b' }}>{results.end_elo?.toFixed(0)}</div>
-            <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.25rem' }}>Final Elo</div>
+            <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.25rem' }}>End Elo</div>
           </div>
           <div style={{ textAlign: 'center', padding: '1rem', background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10 }}>
             <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#8b5cf6' }}>{results.correct_count}/{results.total_questions}</div>
@@ -465,6 +484,14 @@ export default function AdaptiveTest({ documentId }) {
                   <div style={{ fontWeight: 600, fontSize: '1rem', marginBottom: '0.25rem' }}>
                     {feedback.isCorrect ? '✓ Correct!' : `✗ Incorrect — The answer is ${keys[feedback.correctIndex]}`}
                   </div>
+                  {stats.eloChange !== 0 && (
+                    <div style={{ fontWeight: 800, fontSize: '0.95rem', color: stats.eloChange > 0 ? '#34d399' : '#fca5a5' }}>
+                      {stats.eloChange > 0 ? '▲ +' : '▼ −'}{Math.abs(stats.eloChange).toFixed(1)} Elo
+                      <span style={{ fontWeight: 600, color: '#94a3b8', marginLeft: '0.6rem', fontSize: '0.8rem' }}>
+                        ({Math.round(stats.elo - stats.eloChange)} → {Math.round(stats.elo)})
+                      </span>
+                    </div>
+                  )}
                   {feedback.explanation && (
                     <div style={{ marginTop: '0.5rem', color: '#cbd5e1', lineHeight: 1.6 }}>
                       {feedback.explanation}
@@ -500,6 +527,9 @@ export default function AdaptiveTest({ documentId }) {
                     {stats.eloChange > 0 ? '+' : ''}{stats.eloChange.toFixed(1)}
                   </span>
                 )}
+              </div>
+              <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '0.3rem' }}>
+                Level: <span style={{ color: eloLevel(stats.elo).color, fontWeight: 800 }}>{eloLevel(stats.elo).label}</span>
               </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>

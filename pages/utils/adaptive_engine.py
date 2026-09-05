@@ -14,12 +14,36 @@ from typing import Tuple
 
 # ─── Constants ───────────────────────────────────────────────
 
-# Question difficulty seeding tiers
+# Question difficulty seeding tiers on the 0-based Elo scale. These are the
+# 0-anchored equivalents of the old 1200-centered seeds (900/1300/1700): a new
+# learner at 0 Elo faces easy questions at ~85% expected success, matching the
+# old behaviour where a 1200-rated learner faced 900-rated easy items.
 DIFFICULTY_SEEDS = {
-    'easy': 900.0,
-    'medium': 1300.0,
-    'hard': 1700.0,
+    'easy': -300.0,
+    'medium': 100.0,
+    'hard': 500.0,
 }
+
+# User level bands (0-based Elo). Shared by the adaptive-test badge and any
+# UI that turns a rating into a "level".
+LEVEL_BANDS = (
+    (0, 'Beginner'),
+    (200, 'Intermediate'),
+    (500, 'Advanced'),
+    (900, 'Expert'),
+)
+
+
+def elo_level_name(elo: float) -> str:
+    """Map a 0-based Elo rating to its level name.
+
+    <200 Beginner · <500 Intermediate · <900 Advanced · 900+ Expert.
+    """
+    name = LEVEL_BANDS[0][1]
+    for threshold, label in LEVEL_BANDS:
+        if float(elo) >= threshold:
+            name = label
+    return name
 
 # Target success rate (Zone of Proximal Development)
 TARGET_SUCCESS_RATE = 0.65
@@ -191,41 +215,26 @@ def select_next_question(
 
 def get_difficulty_label(difficulty_rating: float) -> str:
     """
-    Convert a numerical difficulty rating to a human-readable label.
+    Convert a numerical difficulty rating (0-based Elo scale) to a label.
     
-    Args:
-        difficulty_rating: Elo-style difficulty rating
+    Thresholds are the 0-anchored equivalents of the old 1100/1500 cutoffs.
     
     Returns:
         'easy', 'medium', or 'hard'
     """
-    if difficulty_rating < 1100:
+    if difficulty_rating < -100:
         return 'easy'
-    elif difficulty_rating < 1500:
+    elif difficulty_rating < 300:
         return 'medium'
     else:
         return 'hard'
 
 
 def get_difficulty_badge(score: float) -> str:
+    """Return the user's level name for a 0-based Elo rating.
+
+    Legacy name kept for API compatibility; delegates to
+    :func:`elo_level_name` (Beginner < 200, Intermediate < 500,
+    Advanced < 900, Expert 900+).
     """
-    Return a human-readable badge name based on user Elo score.
-    
-    Args:
-        score: Normalized rating score
-    
-    Returns:
-        Badge name string
-    """
-    if score >= 1700:
-        return "Grandmaster"
-    elif score >= 1500:
-        return "Master"
-    elif score >= 1300:
-        return "Expert"
-    elif score >= 1100:
-        return "Skilled"
-    elif score >= 900:
-        return "Learner"
-    else:
-        return "Beginner"
+    return elo_level_name(score)

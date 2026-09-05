@@ -21,7 +21,8 @@ class UploadedPDF(models.Model):
 class UserProfile(models.Model):
     """Extends Django User with Elo rating and stats."""
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-    elo_rating = models.FloatField(default=1200.0)
+    # 0-based Elo scale: every new learner starts at 0.
+    elo_rating = models.FloatField(default=0.0)
     total_questions_answered = models.IntegerField(default=0)
     total_correct = models.IntegerField(default=0)
     streak = models.IntegerField(default=0)
@@ -50,7 +51,8 @@ class Question(models.Model):
     options = models.JSONField(default=list)  # List of 4 option strings
     correct_index = models.IntegerField(default=0)  # 0-3
     explanation = models.TextField(blank=True, default='')
-    difficulty_rating = models.FloatField(default=1200.0)  # Elo-style difficulty
+    # 0-based Elo-style difficulty rating (default = neutral / unknown).
+    difficulty_rating = models.FloatField(default=0.0)
     difficulty_label = models.CharField(max_length=10, default='medium')  # easy/medium/hard
     times_served = models.IntegerField(default=0)
     times_correct = models.IntegerField(default=0)
@@ -105,7 +107,7 @@ class TestSession(models.Model):
     """A test session tracking Elo progression."""
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='test_sessions')
     document = models.ForeignKey(UploadedPDF, on_delete=models.CASCADE, related_name='test_sessions')
-    start_elo = models.FloatField(default=1200.0)
+    start_elo = models.FloatField(default=0.0)  # 0-based Elo scale
     end_elo = models.FloatField(null=True, blank=True)
     is_completed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -128,8 +130,8 @@ class SessionResponse(models.Model):
     selected_index = models.IntegerField()  # 0-3
     is_correct = models.BooleanField()
     time_taken_sec = models.FloatField(default=0.0)
-    user_elo_before = models.FloatField(default=1200.0)
-    user_elo_after = models.FloatField(default=1200.0)
+    user_elo_before = models.FloatField(default=0.0)  # 0-based Elo scale
+    user_elo_after = models.FloatField(default=0.0)
     answered_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

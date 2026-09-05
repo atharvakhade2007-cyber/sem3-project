@@ -3,7 +3,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useUi } from '../context/UiContext';
 import { fetchPendingCount } from '../api';
-import { TIER_LABELS, avatarEmoji } from '../constants';
+import { eloLevelName, avatarEmoji } from '../constants';
 
 function ThemeToggle() {
   const [theme, setTheme] = useState(
@@ -120,10 +120,10 @@ export default function Navbar() {
           🧠 <span>StudyMind AI</span>
         </Link>
 
-        {/* Nav links */}
+        {/* Nav links — Daily Quiz, PDF Workspace, Leaderboards */}
         <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
-          <NavLink to="/" style={navLinkStyle} end>PDF Workspace</NavLink>
-          <NavLink to="/quiz" style={navLinkStyle}>Daily Quiz</NavLink>
+          <NavLink to="/" style={navLinkStyle} end>Daily Quiz</NavLink>
+          <NavLink to="/workspace" style={navLinkStyle}>PDF Workspace</NavLink>
           <NavLink to="/leaderboard" style={navLinkStyle}>Leaderboards</NavLink>
         </div>
 
@@ -235,7 +235,7 @@ export default function Navbar() {
                         {avatarEmoji(user.avatar)} {user.username}
                       </div>
                       <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '0.15rem' }}>
-                        🎯 {TIER_LABELS[user.gk_skill_tier] || user.gk_skill_tier || 'Intermediate'}
+                        🎯 {eloLevelName(user.elo_rating ?? 0)} · {Math.round(user.elo_rating ?? 0)} Elo
                       </div>
                     </div>
                     <Link

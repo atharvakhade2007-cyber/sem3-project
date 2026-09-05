@@ -126,9 +126,10 @@ OUTPUT RULES (CRITICAL):
    - "explanation": string (1-2 sentences explaining why the correct answer is right)
    - "difficulty_label": string ("easy", "medium", or "hard")
    - "difficulty_rating": number (Elo-style difficulty rating)
-     - Easy questions: between 800-1000
-     - Medium questions: between 1200-1400
-     - Hard questions: between 1600-1800
+     - Easy questions: between -400 and -200
+     - Medium questions: between 0 and 200
+     - Hard questions: between 400 and 600
+     (0-based scale: a brand-new learner is rated 0 Elo)
 
 3. Distribute questions roughly evenly: ~7 easy, ~7 medium, ~6 hard
 4. Questions should cover different concepts from the material
@@ -164,7 +165,8 @@ STUDY MATERIAL TEXT:
 
         rating = q.get("difficulty_rating")
         if not isinstance(rating, (int, float)):
-            seeds = {"easy": 900.0, "medium": 1300.0, "hard": 1700.0}
+            # Seed based on label (0-based Elo scale: new users start at 0)
+            seeds = {"easy": -300.0, "medium": 100.0, "hard": 500.0}
             rating = seeds[label]
         q["difficulty_rating"] = float(rating)
 
