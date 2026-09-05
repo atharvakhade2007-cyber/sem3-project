@@ -104,13 +104,37 @@ class Summary(models.Model):
 
 
 class TestSession(models.Model):
-    """A test session tracking Elo progression."""
+    """A test session tracking Elo progression.
+
+    Supports user-defined quiz length:
+
+    - ``requested_questions`` is the N the user chose.
+    - ``questions_generated_count`` is the 2N raw LLM pool size.
+    - ``questions_answered_count`` increments with each submitted answer and
+      is what ends the session (NOT the generated pool).
+
+    Unused generated questions stay in the DB but are never served in this
+    session and are NOT counted as 'questions_attempted' for ML features.
+    """
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='test_sessions')
     document = models.ForeignKey(UploadedPDF, on_delete=models.CASCADE, related_name='test_sessions')
     start_elo = models.FloatField(default=0.0)  # 0-based Elo scale
     end_elo = models.FloatField(null=True, blank=True)
     is_completed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    # ── User-defined quiz length ──
+    requested_questions = models.IntegerField(
+        null=True, blank=True,
+        help_text='N the user requested to answer (None = legacy serve all generated).'
+    )
+    questions_generated_count = models.IntegerField(
+        default=0,
+        help_text='Size of the raw 2N LLM question pool for this session.'
+    )
+    questions_answered_count = models.IntegerField(
+        default=0,
+        help_text='How many questions this user has actually answered in this session.'
+    )
 
     def __str__(self):
         return f"Session #{self.id} for {self.user.username}"
@@ -120,7 +144,10 @@ class TestSession(models.Model):
 
 
 class SessionResponse(models.Model):
-    """Records a single answer within a test session."""
+    """Records a single answer within a test session.
+
+    The same question id must never appear twice in one session.
+    """
     session = models.ForeignKey(
         TestSession,
         on_delete=models.CASCADE,
@@ -139,3 +166,9 @@ class SessionResponse(models.Model):
 
     class Meta:
         ordering = ['answered_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['session', 'question'],
+                name='uniq_session_question_once_pages',
+            ),
+        ]

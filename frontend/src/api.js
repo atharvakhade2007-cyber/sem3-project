@@ -89,8 +89,8 @@ export async function generateQuestionBank(docId, numQuestions = 20) {
   });
 }
 
-export async function startTest(docId) {
-  return apiCall('/test/start/', 'POST', { document_id: docId });
+export async function startTest(docId, questionCount = 10) {
+  return apiCall('/test/start/', 'POST', { document_id: docId, question_count: questionCount });
 }
 
 export async function submitAnswer(sessionId, questionId, selectedIndex, timeTakenSec) {

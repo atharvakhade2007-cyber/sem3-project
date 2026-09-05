@@ -142,7 +142,7 @@ export default function Navbar() {
         {/* Nav links */}
         <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <NavLink to="/" style={navLinkStyle} end>Dashboard</NavLink>
-          <NavLink to="/quiz" style={navLinkStyle}>Quiz Arena</NavLink>
+          <NavLink to="/quiz/1" style={navLinkStyle}>Quiz Arena</NavLink>
           <a href="/#library" style={navLinkStyle({ isActive: false })}>PDF Library</a>
           <NavLink to="/leaderboard" style={navLinkStyle}>Leaderboard</NavLink>
         </div>

@@ -41,6 +41,7 @@ function DiffBadge({ label }) {
 export default function AdaptiveTest({ documentId }) {
   const { openChallengeWithSession } = useUi();
   const [state, setState] = useState(STATES.IDLE);
+  const [questionCount, setQuestionCount] = useState(10);
   const [sessionId, setSessionId] = useState(null);
   const [question, setQuestion] = useState(null);
   const [selectedIndex, setSelectedIndex] = useState(null);
@@ -69,7 +70,7 @@ export default function AdaptiveTest({ documentId }) {
   const handleStart = useCallback(async () => {
     setState(STATES.LOADING);
     try {
-      const data = await startTest(documentId);
+      const data = await startTest(documentId, questionCount);
       setSessionId(data.session_id);
       setStats(prev => ({ ...prev, elo: data.start_elo }));
       setQuestion(data.question);
@@ -79,7 +80,11 @@ export default function AdaptiveTest({ documentId }) {
       setError(null);
       submitInFlightRef.current = false;
       questionStartTime.current = Date.now();
-      setState(STATES.QUESTION);
+      // Sync the frontend questionCount with what the backend actually accepted
+      // (e.g. validator may clamp 12 -> 12, or 50 -> 50, or reject).
+      if (data.questions_to_answer != null) {
+        setQuestionCount(data.questions_to_answer);
+      }
     } catch (err) {
       setError(err.message);
       setState(STATES.ERROR);
@@ -196,6 +201,11 @@ export default function AdaptiveTest({ documentId }) {
 
   // ─── Render: IDLE ────────────────────────────
   if (state === STATES.IDLE) {
+    const handles = {
+      '10': () => setQuestionCount(10), '15': () => setQuestionCount(15),
+      '20': () => setQuestionCount(20), '25': () => setQuestionCount(25),
+      '30': () => setQuestionCount(30),
+    };
     return (
       <div style={{ textAlign: 'center', padding: '4rem 2rem' }}>
         <h2 style={{ fontSize: '1.8rem', marginBottom: '0.75rem' }}>Adaptive Test</h2>
@@ -211,6 +221,20 @@ export default function AdaptiveTest({ documentId }) {
           <DiffBadge label="hard" />
           <span style={{ color: '#64748b', fontSize: '0.8rem' }}>question difficulty</span>
         </div>
+        <p style={{ color: '#cbd5e1', fontSize: '0.9rem', marginBottom: '0.5rem' }}>How many questions?</p>
+        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', marginBottom: '2rem', flexWrap: 'wrap' }}>
+          {Object.entries(handles).map(([n, onClick]) => (
+            <button key={n} onClick={onClick} style={{
+              padding: '0.6rem 1.4rem', borderRadius: 10, fontWeight: 700,
+              cursor: 'pointer', border: `2px solid ${questionCount === Number(n) ? '#6366f1' : 'rgba(255,255,255,0.15)'}`,
+              background: questionCount === Number(n) ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.04)',
+              color: questionCount === Number(n) ? '#a5b4fc' : '#cbd5e1',
+              transition: 'all 0.2s',
+            }}>
+              {n}
+            </button>
+          ))}
+        </div>
         <button onClick={handleStart} style={{
           padding: '0.875rem 2.5rem',
           background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
@@ -221,7 +245,7 @@ export default function AdaptiveTest({ documentId }) {
           fontSize: '1rem',
           cursor: 'pointer',
         }}>
-          ▶ Start Test
+          ▶ Start Test ({questionCount} questions)
         </button>
       </div>
     );
@@ -364,11 +388,11 @@ export default function AdaptiveTest({ documentId }) {
             <div style={{ flex: 1, height: 6, background: 'rgba(255,255,255,0.1)', borderRadius: 3, overflow: 'hidden' }}>
               <div style={{
                 height: '100%', background: 'linear-gradient(90deg, #6366f1, #8b5cf6)',
-                borderRadius: 3, width: `${(stats.answered / Math.max(stats.answered + 1, 5)) * 100}%`,
+                borderRadius: 3, width: `${Math.min((stats.answered / questionCount) * 100, 100)}%`,
                 transition: 'width 0.3s',
               }} />
             </div>
-            <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>{stats.answered} answered</span>
+            <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>Question {questionNumber} of {questionCount} ({stats.correct}C / {stats.wrong}W)</span>
           </div>
 
           {/* Question Card — keyed by the unique question id so React cleanly

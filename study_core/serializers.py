@@ -418,6 +418,12 @@ class UploadDocumentSerializer(serializers.Serializer):
 
 class StartTestSerializer(serializers.Serializer):
     document_id = serializers.UUIDField()
+    question_count = serializers.IntegerField(
+        min_value=3, max_value=50, required=False, default=None,
+        help_text='Number of questions the user wants to answer (N). '
+                  'The backend generates 2*N questions and adaptively serves N of them. '
+                  'If omitted, the legacy behaviour (serve all generated questions) is used.'
+    )
 
 
 class SubmitAnswerSerializer(serializers.Serializer):

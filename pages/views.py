@@ -362,7 +362,17 @@ def api_generate_question_bank(request):
 @authentication_classes([JWTAuthentication])
 @permission_classes([IsAuthenticated])
 def api_test_start(request):
-    """REST API: Create TestSession and select first question."""
+    """REST API: Create TestSession and select first question.
+
+    Supports user-defined quiz length: if `question_count` (N) is provided,
+    the backend generates exactly 2*N questions, evenly split across
+    Easy/Medium/Hard, stores them as the pool, and adaptively serves exactly N.
+    The unused N questions remain in the DB but are never served and are NOT
+    counted as questions_attempted.
+
+    If `question_count` is omitted, the legacy behaviour (serve the
+    full generated or existing set) is used.
+    """
     if request.method != 'POST':
         return JsonResponse({'error': 'POST method required'}, status=405)
 
@@ -375,17 +385,24 @@ def api_test_start(request):
     user, profile = _resolve_user_and_profile(request, data)
     pdf = get_object_or_404(UploadedPDF, id=doc_id)
 
-    # Auto-generate question bank if none exist
-    questions = Question.objects.filter(document=pdf)
-    if not questions.exists():
+    requested_n = data.get('question_count', None)
+    if requested_n is not None:
+        try:
+            requested_n = int(requested_n)
+        except (TypeError, ValueError):
+            requested_n = None
+
+    # If the user requested a specific N, generate exactly 2N questions.
+    if requested_n is not None:
+        generated_n = 2 * requested_n
         try:
             extracted_text = pdf.raw_text or extract_text_from_pdf(pdf.file.path)
-            if not extracted_text.strip():
+            if not text.strip():
                 raise ValueError("Document has no extractable text")
             questions_data = generate_question_bank(
                 text=extracted_text,
-                num_questions=20,
-                api_key=data.get('api_key')
+                num_questions=generated_n,
+                api_key=data.get('api_key'),
             )
             question_objects = [
                 Question(
@@ -400,18 +417,20 @@ def api_test_start(request):
                 for item in questions_data
             ]
             Question.objects.bulk_create(question_objects)
-            questions = Question.objects.filter(document=pdf)
         except Exception as e:
             return JsonResponse({'error': f'Failed to generate questions: {str(e)}'}, status=500)
 
-    # Create session
+    questions = Question.objects.filter(document=pdf)
+
+    # Create session with the user-defined-length metadata.
     session = TestSession.objects.create(
         user=user,
         document=pdf,
         start_elo=profile.elo_rating,
+        requested_questions=requested_n,
+        questions_generated_count=questions.count(),
     )
 
-    # Get all question IDs as dicts
     all_questions = list(questions.values('id', 'difficulty_rating'))
 
     # Select optimal first question
@@ -426,6 +445,9 @@ def api_test_start(request):
         'session_id': session.id,
         'document_id': doc_id,
         'start_elo': profile.elo_rating,
+        'requested_questions': requested_n,
+        'questions_to_answer': requested_n if requested_n is not None else questions.count(),
+        'questions_generated': questions.count(),
         'question': {
             'id': question.id,
             'question_text': question.question_text,
@@ -436,11 +458,6 @@ def api_test_start(request):
         'total_questions_available': questions.count(),
     }, status=201)
 
-
-@csrf_exempt
-@api_view(['POST'])
-@authentication_classes([JWTAuthentication])
-@permission_classes([IsAuthenticated])
 def api_test_submit_answer(request):
     """REST API: Submit answer, compute Elo shift, return next question."""
     if request.method != 'POST':
@@ -503,14 +520,24 @@ def api_test_submit_answer(request):
         profile.streak = 0
     profile.save()
 
-    # Get next question
+    # Track how many questions this session has actually answered.
+    session.questions_answered_count = session.responses.count()
+    session.save(update_fields=['questions_answered_count'])
+
+    # Get next question from the remaining pool.
     answered_ids = session.responses.values_list('question_id', flat=True)
     available = Question.objects.filter(
         document=session.document
-    ).exclude(id__in=answered_ids).values('id', 'difficulty_rating')
+).exclude(id__in=answered_ids).values('id', 'difficulty_rating')
 
     available_list = list(available)
     next_question = select_next_question(new_user_elo, available_list)
+
+    questions_to_answer = (
+        session.requested_questions
+        if session.requested_questions is not None
+        else Question.objects.filter(document=session.document).count()
+    )
 
     response_data = {
         'success': True,
@@ -522,11 +549,23 @@ def api_test_submit_answer(request):
         'user_elo_after': new_user_elo,
         'elo_change': new_user_elo - (profile.elo_rating - (new_user_elo - profile.elo_rating)),
         'question_difficulty': question.difficulty_label,
-        'questions_answered': session.responses.count(),
+        'questions_answered': session.questions_answered_count,
+        'questions_to_answer': questions_to_answer,
+        'questions_generated': session.questions_generated_count,
         'total_available': Question.objects.filter(document=session.document).count(),
     }
 
-    if next_question:
+    # End the session once the user has answered the requested N questions.
+    # Legacy (no requested N) still ends when the pool is exhausted.
+    if (
+        session.requested_questions is not None
+        and session.questions_answered_count >= session.requested_questions
+    ):
+        session.is_completed = True
+        session.end_elo = new_user_elo
+        session.save()
+        response_data['session_completed'] = True
+    elif next_question:
         q = Question.objects.get(id=next_question['id'])
         response_data['next_question'] = {
             'id': q.id,
@@ -536,15 +575,13 @@ def api_test_submit_answer(request):
             'difficulty_rating': q.difficulty_rating,
         }
     else:
-        # Auto-complete if no more questions
         session.is_completed = True
         session.end_elo = new_user_elo
         session.save()
         response_data['session_completed'] = True
+        response_data['error'] = 'Question pool exhausted before completing the requested quiz.'
 
     return JsonResponse(response_data, status=200)
-
-
 @csrf_exempt
 @api_view(['POST'])
 @authentication_classes([JWTAuthentication])

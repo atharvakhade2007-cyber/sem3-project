@@ -183,7 +183,21 @@ class DocumentFlashcardsView(APIView):
 
 
 class TestStartView(APIView):
-    """POST /api/test/start/ — Create session, select first question."""
+    """POST /api/test/start/ — Create session, generate 2N questions (if asked),
+    adaptively select the first of N questions.
+
+    - If ``question_count`` (N) is provided, the backend generates exactly 2*N
+      questions from the LLM, evenly split across Easy/Medium/Hard, stores them
+      as the session's question pool, and adaptively serves exactly N of them.
+      The unused N questions remain in the DB but are never served in this
+      session and are NOT counted as questions_attempted.
+    - If ``question_count`` is omitted, the legacy behaviour is used: the
+      existing question set (or 20 generated) is served in full.
+
+    ML: predict the student's INITIAL level to seed the first question's
+    difficulty. After the quiz starts, the existing Elo/IRT/adaptive engine
+    takes over entirely.
+    """
 
     def post(self, request):
         serializer = StartTestSerializer(data=request.data)
@@ -193,17 +207,20 @@ class TestStartView(APIView):
         user = _get_user(request)
         profile = _get_or_create_profile(user)
 
+        requested_n = serializer.validated_data.get('question_count', None)
+
         doc = get_object_or_404(Document, id=doc_id)
 
-        # Auto-generate question bank if none exist
-        questions = Question.objects.filter(document=doc)
-        if not questions.exists():
+        # If the user requested a specific N, generate exactly 2N questions.
+        if requested_n is not None:
+            generated_n = 2 * requested_n
             try:
                 text = doc.raw_text or extract_text_from_pdf(doc.file.path)
                 if not text.strip():
                     raise ValueError("Document has no extractable text.")
-
-                questions_data = llm_service.generate_question_bank(text=text)
+                questions_data = llm_service.generate_question_bank(
+                    text=text, num_questions=generated_n
+                )
                 question_objects = [
                     Question(
                         document=doc,
@@ -216,7 +233,6 @@ class TestStartView(APIView):
                     for item in questions_data
                 ]
                 Question.objects.bulk_create(question_objects)
-                questions = Question.objects.filter(document=doc)
             except Exception as e:
                 return Response(
                     {'error': f'Failed to generate questions: {str(e)}'},
@@ -230,16 +246,34 @@ class TestStartView(APIView):
         # stored Elo when the model is unavailable.
         seed_elo, ml_prediction = initial_seed_elo(user)
 
-        # Create session
+        questions = Question.objects.filter(document=doc)
+
+        # Create session with the user-defined length metadata.
         session = TestSession.objects.create(
             user=user,
             document=doc,
             start_elo=profile.elo_rating,
+            requested_questions=requested_n,
+            questions_generated_count=questions.count(),
         )
 
-        # Select optimal first question (seeded by the ML-predicted level)
-        all_questions = list(questions.values('id', 'difficulty_rating'))
-        selected = AdaptiveEloEngine.select_next_question(seed_elo, all_questions)
+        # How many questions this session will serve.
+        questions_to_answer = (
+            requested_n if requested_n is not None else questions.count()
+        )
+
+        # The adaptive pool = all generated questions minus those already served
+        # in a PREVIOUS session on the same document (per-session dedup is enforced
+        # by the DB unique constraint on session+question at answer time).
+        answered_ids = Question.objects.filter(
+            sessionresponse__session__user=user,
+            sessionresponse__session__document=doc,
+        ).exclude(id__in=[]).values_list('id', flat=True)
+        # For a brand-new session we just use the full pool minus nothing.
+        pool = list(questions.exclude(id__in=[]).values('id', 'difficulty_rating'))
+
+        # Select the first question from the pool using the adaptive engine.
+        selected = AdaptiveEloEngine.select_next_question(seed_elo, pool)
 
         if not selected:
             return Response(
@@ -253,10 +287,12 @@ class TestStartView(APIView):
             'session_id': str(session.id),
             'document_id': str(doc.id),
             'start_elo': profile.elo_rating,
+            'requested_questions': requested_n,
+            'questions_to_answer': questions_to_answer,
+            'questions_generated': questions.count(),
             'predicted_level': ml_prediction.get('predicted_level'),
             'predicted_level_probabilities': ml_prediction.get('probabilities'),
             'question': QuestionBriefSerializer(question).data,
-            'total_questions_available': questions.count(),
         }, status=status.HTTP_201_CREATED)
 
 
@@ -319,7 +355,12 @@ class TestSubmitAnswerView(APIView):
         profile.total_questions_answered += 1
         profile.save()
 
-        # Get next question
+        # Update session answered count — this is what ends the session,
+        # NOT the generated pool size.
+        session.questions_answered_count += 1
+        session.save(update_fields=['questions_answered_count'])
+
+        # Get remaining pool = generated questions minus already-served ones.
         answered_ids = session.responses.values_list('question_id', flat=True)
         available = list(
             Question.objects.filter(document=session.document)
@@ -336,18 +377,38 @@ class TestSubmitAnswerView(APIView):
             'elo_change': new_user_elo - old_elo,
             'user_elo_after': new_user_elo,
             'question_elo_after': new_question_elo,
-            'questions_answered': session.responses.count(),
-            'total_available': Question.objects.filter(document=session.document).count(),
+            'questions_answered': session.questions_answered_count,
+            'questions_to_answer': (
+                session.requested_questions
+                if session.requested_questions is not None
+                else Question.objects.filter(document=session.document).count()
+            ),
+            'questions_generated': session.questions_generated_count,
         }
 
-        if next_question:
-            q = Question.objects.get(id=next_question['id'])
-            result['next_question'] = QuestionBriefSerializer(q).data
-        else:
+        # Session ends when the user has answered exactly the requested N.
+        # (Legacy: if no requested N was given, serve the whole generated pool.)
+        if (
+            session.requested_questions is not None
+            and session.questions_answered_count >= session.requested_questions
+        ):
             session.is_completed = True
             session.end_elo = new_user_elo
             session.save()
             result['session_completed'] = True
+            result['questions_answered'] = session.questions_answered_count
+        elif next_question:
+            q = Question.objects.get(id=next_question['id'])
+            result['next_question'] = QuestionBriefSerializer(q).data
+        else:
+            # Pool exhausted before reaching N (shouldn't happen with 2N pool,
+            # but fail gracefully).
+            session.is_completed = True
+            session.end_elo = new_user_elo
+            session.save()
+            result['session_completed'] = True
+            result['questions_answered'] = session.questions_answered_count
+            result['error'] = 'Question pool exhausted before completing the requested quiz.'
 
         return Response(result)
 

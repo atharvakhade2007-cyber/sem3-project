@@ -1,0 +1,7 @@
+npm warn exec The following package was not found and will be installed: vite@8.2.2
+
+  [32m[1mVITE[22m v8.2.2[39m  [2mready in [0m[1m1165[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5173[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://192.168.0.101:[1m5173[22m/[39m  [2mWi-Fi[22m
+[2m12:46:46 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [optimizer] scanning dependencies...

@@ -109,9 +109,18 @@ def generate_question_bank(
     Returns list of dicts with keys:
     - question, options (list of 4), correct_index (0-3),
       explanation, difficulty_label, difficulty_rating
+
+    NOTE: num_questions is the TOTAL questions to generate. The CALLER is
+    responsible for the 2N-vs-N semantics (e.g. passing 2*N so the backend
+    can select N from the generated pool). The prompt wording is unchanged
+    so it still asks the LLM for "exactly N questions".
     """
     max_char_limit = 20000
     truncated_text = text[:max_char_limit]
+
+    # Update the LLM prompt to ask for the proper per-tier distribution for 2N.
+    # For a requested total T = 2N we want counts that differ by at most 1.
+    e, m, h = _distribute_evenly(num_questions)
 
     prompt = f"""You are an expert educational assessment creator specializing in adaptive testing.
 
@@ -131,7 +140,11 @@ OUTPUT RULES (CRITICAL):
      - Hard questions: between 400 and 600
      (0-based scale: a brand-new learner is rated 0 Elo)
 
-3. Distribute questions roughly evenly: ~7 easy, ~7 medium, ~6 hard
+3. Distribute the questions EXACTLY as follows (no more, no less):
+     - Easy:   {e}
+     - Medium: {m}
+     - Hard:   {h}
+   Every question must have a difficulty_label that matches this split.
 4. Questions should cover different concepts from the material
 5. Each question must have exactly 4 distinct options
 
@@ -145,6 +158,7 @@ STUDY MATERIAL TEXT:
         raise ValueError("Expected JSON list from LLM")
 
     # Validate and normalize
+    easy_count = medium_count = hard_count = 0
     for i, q in enumerate(parsed):
         required = {"question", "options", "correct_index", "explanation"}
         missing = required - set(q.keys())
@@ -172,4 +186,57 @@ STUDY MATERIAL TEXT:
 
         q.setdefault("explanation", "")
 
-    return parsed
+        if label == "easy":
+            easy_count += 1
+        elif label == "hard":
+            hard_count += 1
+        else:
+            medium_count += 1
+
+    # Enforce the exact distribution the prompt asked for.
+    if easy_count != e or medium_count != m or hard_count != h:
+        raise ValueError(
+            f"LLM returned wrong difficulty distribution. "
+            f"Expected Easy={e}, Medium={m}, Hard={h}; "
+            f"got Easy={easy_count}, Medium={medium_count}, Hard={hard_count}."
+        )
+
+    if len(parsed) != num_questions:
+        raise ValueError(
+            f"LLM returned {len(parsed)} questions, expected exactly {num_questions}."
+        )
+
+    # Dedup on question text (case-insensitive, whitespace-insensitive).
+    seen = set()
+    deduped = []
+    for q in parsed:
+        key = q["question"].strip().lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(q)
+
+    if len(deduped) != num_questions:
+        raise ValueError(
+            f"After dedup, only {len(deduped)} unique questions remain (expected {num_questions})."
+        )
+
+    return deduped
+
+
+def _distribute_evenly(total: int) -> tuple:
+    """Split ``total`` across [Easy, Medium, Hard] as evenly as possible.
+
+    Differing by at most 1. For example:
+      18 -> (6, 6, 6)
+      20 -> (7, 7, 6)
+      22 -> (8, 7, 7)
+
+    Returns (easy, medium, hard).
+    """
+    base = total // 3  # floor per tier
+    rem = total % 3    # leftover tiers that get +1 (Easy gets +1 first, then Medium)
+    easy = base + (1 if rem > 0 else 0)
+    medium = base + (1 if rem > 1 else 0)
+    hard = base
+    return easy, medium, hard

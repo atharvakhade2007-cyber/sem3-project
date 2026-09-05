@@ -1,7 +1,5 @@
 import { useAuth } from '../context/AuthContext';
 import LandingHero from '../components/LandingHero';
-import QuizPage from './QuizPage';
-
 /**
  * Home ("/"): the Daily Quiz tab for signed-in users; the marketing landing
  * page for visitors. The PDF Workspace has its own tab at /workspace.
@@ -25,5 +23,5 @@ export default function HomePage() {
     return <LandingHero />;
   }
 
-  return <QuizPage />;
+  return <div style={{ padding: '2rem', textAlign: 'center' }}>Quiz workspace — configure the adaptive quiz start here.</div>;
 }
