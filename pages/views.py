@@ -8,6 +8,14 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from django.contrib.auth.models import User
 
+from rest_framework.decorators import (
+    api_view,
+    authentication_classes,
+    permission_classes,
+)
+from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.authentication import JWTAuthentication
+
 from .models import (
     UploadedPDF, Question, UserProfile, Flashcard, Summary,
     TestSession, SessionResponse,
@@ -36,29 +44,13 @@ from .utils.adaptive_engine import (
 # ═══════════════════════════════════════════════
 
 def _resolve_user_and_profile(request, data=None):
-    """Resolve the target User and UserProfile."""
-    user = None
-    if hasattr(request, 'user') and request.user and request.user.is_authenticated:
-        user = request.user
-    else:
-        user_id = None
-        if request.GET.get('user_id'):
-            user_id = request.GET.get('user_id')
-        elif data and data.get('user_id'):
-            user_id = data.get('user_id')
-        if user_id:
-            try:
-                user = User.objects.get(id=int(user_id))
-            except (ValueError, User.DoesNotExist):
-                pass
+    """Resolve the authenticated request user and their profile.
 
-    if not user:
-        user = User.objects.first()
-    if not user:
-        user = User.objects.create_user('demo_user', password='demopassword123')
-
-    profile, _ = UserProfile.objects.get_or_create(user=user)
-    return user, profile
+    JWT auth is enforced on all REST API views (see @api_view + IsAuthenticated
+    below), so request.user is always an authenticated User here.
+    """
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    return request.user, profile
 
 
 def _extract_data_from_request(request):
@@ -187,6 +179,9 @@ def adaptive_test_view(request, pdf_id):
 # ═══════════════════════════════════════════════
 
 @csrf_exempt
+@api_view(['POST'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 def api_upload_document(request):
     """REST API: Upload PDF, parse text, store document."""
     if request.method != 'POST':
@@ -218,6 +213,9 @@ def api_upload_document(request):
 
 
 @csrf_exempt
+@api_view(['POST'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 def api_generate_summary(request, doc_id):
     """REST API: Generate and return structured summary for a document."""
     if request.method != 'POST':
@@ -252,6 +250,9 @@ def api_generate_summary(request, doc_id):
 
 
 @csrf_exempt
+@api_view(['POST'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 def api_generate_flashcards(request, doc_id):
     """REST API: Generate and return 20 flashcards for a document."""
     if request.method != 'POST':
@@ -292,6 +293,9 @@ def api_generate_flashcards(request, doc_id):
 # ═══════════════════════════════════════════════
 
 @csrf_exempt
+@api_view(['POST'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 def api_generate_question_bank(request):
     """REST API: Generate question bank for a document."""
     if request.method != 'POST':
@@ -354,6 +358,9 @@ def api_generate_question_bank(request):
 
 
 @csrf_exempt
+@api_view(['POST'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 def api_test_start(request):
     """REST API: Create TestSession and select first question."""
     if request.method != 'POST':
@@ -431,6 +438,9 @@ def api_test_start(request):
 
 
 @csrf_exempt
+@api_view(['POST'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 def api_test_submit_answer(request):
     """REST API: Submit answer, compute Elo shift, return next question."""
     if request.method != 'POST':
@@ -536,6 +546,9 @@ def api_test_submit_answer(request):
 
 
 @csrf_exempt
+@api_view(['POST'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 def api_test_complete(request):
     """REST API: Complete session, return comprehensive review data."""
     if request.method != 'POST':

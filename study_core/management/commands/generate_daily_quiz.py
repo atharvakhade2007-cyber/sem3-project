@@ -1,16 +1,17 @@
 """
-Management command to generate today's Daily GK Quiz.
+Management command to generate today's Daily GK Quiz (5 Current Affairs + 15 tiered GK).
 
 Usage:
     python manage.py generate_daily_quiz
     python manage.py generate_daily_quiz --date 2026-09-02
 """
 
-from datetime import date, datetime
+from datetime import datetime
 from django.core.management.base import BaseCommand, CommandError
+from django.utils import timezone
 
-from study_core.models import DailyQuiz, DailyQuestion
-from study_core.services.daily_quiz_service import generate_daily_gk_questions
+from study_core.models import DailyQuiz
+from study_core.services.daily_quiz_service import create_daily_quiz_for_date
 
 
 class Command(BaseCommand):
@@ -25,7 +26,9 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        target_date = date.today()
+        # "Today" follows the app's IST day boundary (not the server's
+        # system clock), matching the 00:00 IST Celery cron.
+        target_date = timezone.localdate()
         if options['date']:
             try:
                 target_date = datetime.strptime(options['date'], '%Y-%m-%d').date()
@@ -42,37 +45,13 @@ class Command(BaseCommand):
         self.stdout.write(f'Generating Daily GK Quiz for {target_date}...')
 
         try:
-            questions_data = generate_daily_gk_questions(target_date=target_date)
+            quiz = create_daily_quiz_for_date(target_date=target_date)
         except Exception as e:
             raise CommandError(f'Failed to generate questions: {e}')
-
-        # Create quiz and questions in a transaction
-        from django.db import transaction
-
-        with transaction.atomic():
-            quiz = DailyQuiz.objects.create(
-                date=target_date,
-                title=f'Daily GK & Current Affairs — {target_date.strftime("%B %d, %Y")}',
-            )
-
-            question_objects = []
-            for i, q_data in enumerate(questions_data):
-                question_objects.append(
-                    DailyQuestion(
-                        quiz=quiz,
-                        question_text=q_data['question_text'],
-                        options=q_data['options'],
-                        correct_index=q_data['correct_index'],
-                        explanation=q_data.get('explanation', ''),
-                        order=i + 1,
-                    )
-                )
-
-            DailyQuestion.objects.bulk_create(question_objects)
 
         self.stdout.write(
             self.style.SUCCESS(
                 f'Successfully created quiz for {target_date} '
-                f'with {len(question_objects)} questions.'
+                f'with {quiz.questions.count()} questions.'
             )
         )

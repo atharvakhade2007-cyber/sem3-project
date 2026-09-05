@@ -8,6 +8,11 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", include("pages.urls")),
     path("api/v2/", include("study_core.urls")),
+    path("api/auth/", include("study_core.auth_urls")),
+    path("api/user/", include("study_core.user_urls")),
+    path("api/social/", include("study_core.social_urls")),
+    path("api/challenges/", include("study_core.challenge_urls")),
+    path("api/leaderboard/", include("study_core.leaderboard_urls")),
 ]
 
 # Serve React frontend for all non-API, non-admin routes

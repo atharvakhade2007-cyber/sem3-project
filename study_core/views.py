@@ -1,8 +1,8 @@
-from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
 
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
+from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -32,10 +32,10 @@ from pages.utils.pdf_parser import extract_text_from_pdf
 
 
 def _get_user(request):
-    """Return authenticated user, or fall back to first user (demo mode)."""
+    """Return the authenticated user or raise 401 (demo fallback removed)."""
     if hasattr(request, 'user') and request.user and request.user.is_authenticated:
         return request.user
-    return User.objects.first()
+    raise AuthenticationFailed('Authentication required.')
 
 
 def _get_or_create_profile(user):
@@ -582,47 +582,32 @@ class UserProfileView(APIView):
 #  5. Daily GK Quiz
 # ═══════════════════════════════════════════════
 
-from datetime import date, timedelta
+from django.utils import timezone
 from django.db import transaction
-from .models import DailyQuiz, DailyQuestion, DailyQuizSession
-from .services.daily_quiz_service import generate_daily_gk_questions
+from django.db import IntegrityError
+from .models import DailyQuiz, DailyQuestion, DailyQuizSession, UserProfile
+from .services.daily_quiz_service import (
+    ensure_daily_quiz_for_date,
+    questions_for_user,
+    apply_quiz_completion,
+)
 
 
 def _ensure_today_quiz():
-    """Auto-generate today's quiz if it doesn't exist yet."""
-    today = date.today()
-    if DailyQuiz.objects.filter(date=today).exists():
-        return DailyQuiz.objects.get(date=today)
-
-    # Generate fresh quiz
-    questions_data = generate_daily_gk_questions(target_date=today)
-
-    with transaction.atomic():
-        quiz = DailyQuiz.objects.create(
-            date=today,
-            title=f'Daily GK & Current Affairs — {today.strftime("%B %d, %Y")}',
-        )
-        question_objects = [
-            DailyQuestion(
-                quiz=quiz,
-                question_text=q['question_text'],
-                options=q['options'],
-                correct_index=q['correct_index'],
-                explanation=q.get('explanation', ''),
-                order=i + 1,
-            )
-            for i, q in enumerate(questions_data)
-        ]
-        DailyQuestion.objects.bulk_create(question_objects)
-
-    return quiz
+    """
+    Return today's quiz, auto-generating it on demand if the 00:00 IST Celery
+    task hasn't run yet (lazy fallback keeps the feature working workerless).
+    """
+    return ensure_daily_quiz_for_date(timezone.localdate())
 
 
 class DailyQuizTodayView(APIView):
     """
-    GET /api/daily-quiz/today/
+    GET /api/v2/daily-quiz/today/
 
-    Returns today's quiz metadata, user status, and sanitized questions.
+    Returns today's quiz adapted to the requesting user's profile:
+    5 universally-identical Current Affairs questions + the 5 GK questions
+    matching their gk_skill_tier. Includes streak stats and the mini leaderboard.
     Does NOT expose correct_index or explanation.
     """
 
@@ -636,22 +621,26 @@ class DailyQuizTodayView(APIView):
             )
 
         user = _get_user(request)
+        profile = _get_or_create_profile(user)
+        tier = profile.gk_skill_tier
 
         # Check if user already completed today's quiz
         existing_session = DailyQuizSession.objects.filter(
             user=user, quiz=quiz
         ).first()
 
-        # Sanitize questions (no answers)
-        questions = quiz.questions.all()
+        # Serve 5 universal CA + 5 tier-matched GK (sanitized — no answers)
+        served = questions_for_user(quiz, tier)
         sanitized = [
             {
                 'id': str(q.id),
                 'order': q.order,
+                'category': q.category,
+                'difficulty_tier': q.difficulty_tier,
                 'question_text': q.question_text,
                 'options': q.options,
             }
-            for q in questions
+            for q in served
         ]
 
         # Top 3 leaderboard
@@ -673,9 +662,13 @@ class DailyQuizTodayView(APIView):
             'quiz_id': str(quiz.id),
             'date': quiz.date.isoformat(),
             'title': quiz.title,
-            'total_questions': questions.count(),
+            'total_questions': len(sanitized),
             'questions': sanitized,
             'leaderboard_top3': leaderboard_top3,
+            # ── Gamification state ──
+            'gk_skill_tier': tier,
+            'current_streak': profile.current_streak,
+            'longest_streak': profile.longest_streak,
         }
 
         if existing_session:
@@ -686,6 +679,27 @@ class DailyQuizTodayView(APIView):
                 quiz=quiz, score__gt=existing_session.score
             ).count() + 1
             result['user_answers'] = existing_session.answers
+            # Full review (only exposed to the user who already completed).
+            answers_by_id = {
+                str(a.get('question_id')): a for a in existing_session.answers
+            }
+            review = []
+            for q in served:
+                a = answers_by_id.get(str(q.id))
+                if a is None:
+                    continue
+                review.append({
+                    'question_id': str(q.id),
+                    'question_text': q.question_text,
+                    'options': q.options,
+                    'correct_index': q.correct_index,
+                    'selected_index': a.get('selected_index'),
+                    'is_correct': a.get('is_correct'),
+                    'category': q.category,
+                    'difficulty_tier': q.difficulty_tier,
+                    'explanation': q.explanation,
+                })
+            result['user_review'] = review
         else:
             result['user_completed'] = False
 
@@ -694,14 +708,17 @@ class DailyQuizTodayView(APIView):
 
 class DailyQuizSubmitView(APIView):
     """
-    POST /api/daily-quiz/submit/
+    POST /api/v2/daily-quiz/submit/
 
-    Validates submission, prevents multiple attempts, computes score.
+    Validates responses, grades only the user's served questions (5 CA + 5
+    tier-matched GK), computes the score, updates the daily streak and the
+    adaptive GK skill tier, and writes the attempt record.
     Body: { answers: [{question_id, selected_index}, ...], total_time_sec: float }
     """
 
     def post(self, request):
         user = _get_user(request)
+        profile = _get_or_create_profile(user)
 
         try:
             quiz = _ensure_today_quiz()
@@ -719,42 +736,70 @@ class DailyQuizSubmitView(APIView):
             )
 
         answers_data = request.data.get('answers', [])
-        total_time_sec = float(request.data.get('total_time_sec', 0))
-
-        if not answers_data:
+        if not isinstance(answers_data, list) or not answers_data:
             return Response(
                 {'error': 'answers array is required'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Score the submission
-        questions = {str(q.id): q for q in quiz.questions.all()}
+        try:
+            total_time_sec = float(request.data.get('total_time_sec', 0) or 0)
+        except (TypeError, ValueError):
+            total_time_sec = 0.0
+
+        # Grade ONLY the user's served questions (5 universal CA + their 5 GK),
+        # so users on different difficulty tiers can't answer out-of-tier items.
+        tier = profile.gk_skill_tier
+        served = questions_for_user(quiz, tier)
+        questions = {str(q.id): q for q in served}
+
         score = 0
+        gk_correct = 0
         processed_answers = []
 
         for ans in answers_data:
             q_id = str(ans.get('question_id', ''))
-            selected = int(ans.get('selected_index', -1))
+            try:
+                selected = int(ans.get('selected_index', -1))
+            except (TypeError, ValueError):
+                selected = -1
 
-            if q_id in questions:
-                q = questions[q_id]
-                is_correct = (selected == q.correct_index)
-                if is_correct:
-                    score += 1
-                processed_answers.append({
-                    'question_id': q_id,
-                    'selected_index': selected,
-                    'is_correct': is_correct,
-                })
+            q = questions.get(q_id)
+            if q is None or selected not in {0, 1, 2, 3}:
+                continue  # unknown question or invalid option → ignore
 
-        # Save session
-        session = DailyQuizSession.objects.create(
-            user=user,
-            quiz=quiz,
-            score=score,
-            total_time_sec=total_time_sec,
-            answers=processed_answers,
-        )
+            is_correct = (selected == q.correct_index)
+            if is_correct:
+                score += 1
+                if q.category == DailyQuestion.Category.GK:
+                    gk_correct += 1
+
+            processed_answers.append({
+                'question_id': q_id,
+                'selected_index': selected,
+                'is_correct': is_correct,
+            })
+
+        today = timezone.localdate()
+
+        # Save session + update streak/tier atomically (unique user+quiz row
+        # guards against double-submit races).
+        try:
+            with transaction.atomic():
+                session = DailyQuizSession.objects.create(
+                    user=user,
+                    quiz=quiz,
+                    score=score,
+                    total_time_sec=total_time_sec,
+                    answers=processed_answers,
+                )
+                apply_quiz_completion(profile, gk_correct, today)
+                profile.save()
+        except IntegrityError:
+            return Response(
+                {'error': 'You have already completed today\'s quiz.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         # Build review with explanations
         review = []
@@ -768,6 +813,8 @@ class DailyQuizSubmitView(APIView):
                     'correct_index': q.correct_index,
                     'selected_index': ans['selected_index'],
                     'is_correct': ans['is_correct'],
+                    'category': q.category,
+                    'difficulty_tier': q.difficulty_tier,
                     'explanation': q.explanation,
                 })
 
@@ -778,26 +825,68 @@ class DailyQuizSubmitView(APIView):
 
         return Response({
             'score': score,
-            'total_questions': quiz.questions.count(),
+            'total_questions': len(served),
             'total_time_sec': total_time_sec,
             'rank': rank,
+            'gk_correct': gk_correct,
             'review': review,
+            # ── Updated gamification state ──
+            'current_streak': profile.current_streak,
+            'longest_streak': profile.longest_streak,
+            'gk_skill_tier': profile.gk_skill_tier,
         }, status=status.HTTP_201_CREATED)
 
 
 class DailyQuizLeaderboardView(APIView):
     """
-    GET /api/daily-quiz/leaderboard/
+    GET /api/v2/daily-quiz/leaderboard/?tab=score&limit=10
 
-    Returns top 10 players for today's quiz.
+    Daily rankings sorted by score DESC, then time_taken ASC (fastest wins
+    ties), limited to the top-N for rapid client rendering.
+
+    Query params:
+    - tab: 'score' (default, today's quiz scores) | 'streak' (current streak ranking)
+    - limit: top-N count (default 10, max 100)
     """
 
     def get(self, request):
-        today = date.today()
+        today = timezone.localdate()
+        tab = request.query_params.get('tab', 'score')
+
+        try:
+            limit = int(request.query_params.get('limit', 10))
+        except (TypeError, ValueError):
+            limit = 10
+        limit = max(1, min(limit, 100))
+
+        # ── Tab: current streaks across all users ──
+        if tab == 'streak':
+            profiles = (
+                UserProfile.objects.select_related('user')
+                .filter(current_streak__gt=0)
+                .order_by('-current_streak', '-longest_streak')[:limit]
+            )
+            leaderboard = [
+                {
+                    'rank': i + 1,
+                    'username': p.user.username,
+                    'current_streak': p.current_streak,
+                    'longest_streak': p.longest_streak,
+                    'gk_skill_tier': p.gk_skill_tier,
+                }
+                for i, p in enumerate(profiles)
+            ]
+            return Response({
+                'type': 'streak',
+                'leaderboard': leaderboard,
+            })
+
+        # ── Default tab: today's score leaderboard ──
         try:
             quiz = DailyQuiz.objects.get(date=today)
         except DailyQuiz.DoesNotExist:
             return Response({
+                'type': 'score',
                 'quiz_date': today.isoformat(),
                 'leaderboard': [],
                 'message': 'No quiz available for today yet.',
@@ -805,7 +894,7 @@ class DailyQuizLeaderboardView(APIView):
 
         sessions = DailyQuizSession.objects.filter(
             quiz=quiz
-        ).select_related('user').order_by('-score', 'total_time_sec')[:10]
+        ).select_related('user').order_by('-score', 'total_time_sec')[:limit]
 
         leaderboard = [
             {
@@ -813,12 +902,14 @@ class DailyQuizLeaderboardView(APIView):
                 'username': s.user.username,
                 'score': s.score,
                 'total_time_sec': s.total_time_sec,
+                'time_sec': s.total_time_sec,
                 'completed_at': s.completed_at.isoformat(),
             }
             for i, s in enumerate(sessions)
         ]
 
         return Response({
+            'type': 'score',
             'quiz_date': today.isoformat(),
             'leaderboard': leaderboard,
         })

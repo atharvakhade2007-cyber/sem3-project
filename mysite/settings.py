@@ -10,7 +10,10 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
+from datetime import timedelta
 from pathlib import Path
+
 import dotenv
 
 dotenv.load_dotenv()
@@ -43,6 +46,8 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "corsheaders",
     "rest_framework",
+    "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
     "pages",
     "study_core",
 ]
@@ -125,7 +130,9 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = "UTC"
+# App and daily-quiz "day" boundary run on Indian Standard Time (IST),
+# so the quiz refreshes at midnight IST and streaks roll over on IST days.
+TIME_ZONE = "Asia/Kolkata"
 
 USE_I18N = True
 
@@ -150,11 +157,62 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Django REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',
+        'rest_framework.permissions.IsAuthenticated',
     ],
     'DEFAULT_PAGINATION_CLASS': None,
 }
+
+
+# ── JWT auth (djangorestframework-simplejwt) ──
+# Access tokens are short-lived and returned in the response body; the client
+# sends them as `Authorization: Bearer <access>` and keeps them in memory.
+# Refresh tokens are long-lived, rotated on every refresh, and stored ONLY in
+# an httpOnly, SameSite=Lax cookie scoped to /api/auth/ (never exposed to JS).
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'UPDATE_LAST_LOGIN': True,
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
+    # Cookie storage for the refresh token
+    'AUTH_COOKIE_REFRESH': 'refresh_token',
+    'AUTH_COOKIE_HTTP_ONLY': True,
+    'AUTH_COOKIE_SECURE': not DEBUG,
+    'AUTH_COOKIE_SAMESITE': 'Lax',
+    'AUTH_COOKIE_PATH': '/api/auth/',
+}
+
+
+# ── Celery (background task automation) ──
+# Redis doubles as broker and result backend. Override REDIS_URL in .env if
+# your Redis instance is not at localhost:6379.
+CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+CELERY_TIMEZONE = 'Asia/Kolkata'
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 10 * 60  # generous cap for Gemini generation
+
+try:
+    from celery.schedules import crontab
+
+    # Nightly cron: generate the day's quiz at 00:00 IST (crontab is
+    # interpreted in CELERY_TIMEZONE, i.e. Asia/Kolkata).
+    CELERY_BEAT_SCHEDULE = {
+        'generate-daily-quiz': {
+            'task': 'study_core.tasks.generate_daily_quiz_task',
+            'schedule': crontab(hour=0, minute=0),
+        },
+    }
+except ImportError:
+    # Celery not installed (fresh dev checkout): the management command
+    # `python manage.py generate_daily_quiz` and the lazy on-demand fallback
+    # in /api/v2/daily-quiz/today/ still cover generation.
+    pass
 

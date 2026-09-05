@@ -159,6 +159,78 @@ def _clean_and_parse_json(raw_text: str) -> Any:
         raise ValueError(f"Failed to parse JSON response: {e}\nRaw Response:\n{raw_text}")
 
 
+def _call_gemini_structured(
+    prompt: str,
+    response_schema: Dict[str, Any],
+    api_key: Optional[str] = None,
+) -> Any:
+    """
+    Call Gemini with JSON schema enforcement (structured output).
+
+    Uses response_mime_type="application/json" + a response_schema dict so the
+    model is constrained to emit valid JSON matching the schema. Falls back to
+    a plain-text call + _clean_and_parse_json if the SDK/model doesn't support
+    schemas, so this never hard-fails on model availability.
+
+    Args:
+        prompt: The instruction prompt.
+        response_schema: Gemini JSON schema (plain dict, e.g.
+            {"type": "ARRAY", "items": {"type": "OBJECT", ...}}).
+        api_key: Optional override; otherwise env/.env key is used.
+
+    Returns:
+        The parsed JSON payload (dict / list / etc.).
+
+    Raises:
+        ValueError: On invalid API key or unparseable JSON.
+        RuntimeError: When every model attempt fails.
+    """
+    clean_key = _get_gemini_api_key(api_key)
+    errors_log = []
+
+    # Primary path: google-genai SDK with response_schema
+    try:
+        from google import genai
+        from google.genai import types
+
+        client = genai.Client(api_key=clean_key)
+        models_to_try = [
+            "gemini-2.5-flash",
+            "gemini-3.6-flash",
+            "gemini-3.5-flash",
+            "gemini-3.5-flash-lite",
+            "gemini-2.5-pro",
+        ]
+
+        for model_name in models_to_try:
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        temperature=0.3,
+                        response_mime_type="application/json",
+                        response_schema=response_schema,
+                    ),
+                )
+                if response and hasattr(response, 'text') and response.text:
+                    return _clean_and_parse_json(response.text)
+            except Exception as err:
+                err_str = str(err)
+                errors_log.append(f"{model_name} (structured): {err_str}")
+                if "API_KEY_INVALID" in err_str or "API key not valid" in err_str:
+                    raise ValueError("Your Gemini API Key is invalid.")
+
+    except ValueError:
+        raise
+    except Exception as sdk_err:
+        errors_log.append(f"Structured SDK init error: {str(sdk_err)}")
+
+    # Fallback: plain text generation, then parse (schema still requested in prompt)
+    raw_response_text = _call_gemini(prompt, clean_key)
+    return _clean_and_parse_json(raw_response_text)
+
+
 # ──────────────────────────────────────────────
 #  Summary generation
 # ──────────────────────────────────────────────

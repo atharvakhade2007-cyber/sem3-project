@@ -1,0 +1,19 @@
+# Core web stack
+Django==5.2.17
+djangorestframework==3.18.0
+djangorestframework-simplejwt==5.5.0
+django-cors-headers==4.9.0
+psycopg2-binary==2.9.12
+
+# Environment & utilities
+python-dotenv==1.2.2
+requests==2.34.2
+pypdf==6.15.0
+
+# LLM generation (Gemini)
+google-genai==2.17.0
+google-generativeai==0.8.6
+
+# Background task automation (daily quiz cron at 00:00 IST)
+celery>=5.4,<6
+redis>=5.0

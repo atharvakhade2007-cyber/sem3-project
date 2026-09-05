@@ -1,67 +1,128 @@
 """
-Daily Quiz Service — Generates GK & Current Affairs questions via Gemini.
+Daily Quiz Service — Adaptive GK & Current Affairs generation via Gemini.
 
-Uses the existing Gemini integration from pages.utils.llm_generator.
+Quiz composition per calendar day (one DailyQuiz row):
+- 5 Current Affairs questions  (category='current_affairs') — universally
+  identical for every user that day.
+- 15 General Knowledge questions (category='gk'), 5 per static difficulty
+  tier (easy / medium / hard). The serving endpoint returns the 5 GK
+  questions matching the user's recorded gk_skill_tier.
+
+Uses structured Gemini output (response_schema) for robust JSON parsing.
 """
 
 from datetime import date
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
-from pages.utils.llm_generator import _call_gemini, _clean_and_parse_json
+from django.db import transaction
+
+from pages.utils.llm_generator import _call_gemini_structured
+
+from study_core.models import DailyQuiz, DailyQuestion, UserProfile
+
+# ─── Composition constants ─────────────────────────────────
+CA_COUNT = 5                 # Current Affairs questions (universal)
+GK_PER_TIER = 5              # GK questions per difficulty tier
+TIER_ORDER = ['easy', 'medium', 'hard']
+
+# Tier progression thresholds (per 5 GK questions served)
+PROMOTE_THRESHOLD = 4        # >= 4/5 correct → move up one tier
+DEMOTE_THRESHOLD = 1         # <= 1/5 correct → move down one tier
 
 
-def generate_daily_gk_questions(
+# ─── Gemini JSON schema (structured output) ─────────────────
+
+_QUESTION_SCHEMA = {
+    "type": "OBJECT",
+    "properties": {
+        "question_text": {"type": "STRING"},
+        "options": {
+            "type": "ARRAY",
+            "items": {"type": "STRING"},
+            "minItems": 4,
+            "maxItems": 4,
+        },
+        "correct_index": {"type": "INTEGER"},
+        "explanation": {"type": "STRING"},
+        "category": {
+            "type": "STRING",
+            "enum": ["current_affairs", "gk"],
+        },
+        "difficulty_tier": {
+            "type": "STRING",
+            "enum": ["easy", "medium", "hard"],
+        },
+    },
+    "required": [
+        "question_text", "options", "correct_index", "explanation",
+        "category", "difficulty_tier",
+    ],
+}
+
+DAILY_QUIZ_SCHEMA = {
+    "type": "ARRAY",
+    "items": _QUESTION_SCHEMA,
+}
+
+
+def generate_daily_quiz_questions(
     target_date: date,
-    num_questions: int = 10,
-    api_key: str = None,
+    api_key: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
-    Generate 10 GK & Current Affairs MCQs for a given date.
+    Generate 20 questions for one calendar day: 5 Current Affairs + 15 GK
+    (5 easy, 5 medium, 5 hard), in a single Gemini structured-output call.
 
-    Returns list of dicts with keys:
-    - question_text, options (list of 4), correct_index (0-3), explanation
+    Returns a list of dicts, each with keys:
+    - question_text (str)
+    - options (list of exactly 4 strings)
+    - correct_index (int 0-3)
+    - explanation (str)
+    - category ('current_affairs' | 'gk')
+    - difficulty_tier ('easy' | 'medium' | 'hard', or None for Current Affairs)
     """
     date_str = target_date.strftime("%B %d, %Y")
 
-    prompt = f"""You are an expert General Knowledge and Current Affairs quiz maker.
+    prompt = f"""You are an expert quiz maker for an EdTech daily quiz app.
 
-Generate exactly {num_questions} high-quality multiple-choice questions suitable for a daily GK quiz dated {date_str}.
+Today's quiz date is {date_str}. Generate EXACTLY 20 high-quality multiple-choice questions as a JSON array:
 
-COVER THESE TOPICS (rotate across categories):
-- World News & Geopolitics
-- Science & Technology
-- Sports & Awards
-- Economy & Business
-- Environment & Climate
-- History & Culture (on this day)
-- Indian Affairs (if applicable)
-- Important Days & Events
+A) 5 "Current Affairs" questions (category "current_affairs"):
+   - Strictly focused on RECENT global/national news from the last ~7 days before {date_str}:
+     world news, geopolitics, science & technology, sports, awards, economy, environment.
+   - They must be factual, current, and verifiable. Do not use evergreen trivia here.
 
-OUTPUT RULES (CRITICAL):
-1. Output ONLY a valid raw JSON array. No commentary, no markdown blocks.
-2. Each object MUST have EXACTLY these keys:
-   - "question_text": string — the question
-   - "options": array of EXACTLY 4 strings — the answer choices
-   - "correct_index": integer 0-3 — index of the correct answer
-   - "explanation": string — 1-2 sentences explaining why the correct answer is right
-3. Each question must be factually accurate and unambiguous.
-4. Options should be plausible — no obviously wrong distractors.
-5. Vary difficulty: mix of easy, medium, and hard questions.
+B) 15 "General Knowledge" (GK) questions (category "gk"):
+   - Classic GK across history, geography, science, culture, books, etc.
+   - Exactly 5 must be difficulty_tier "easy", exactly 5 "medium", exactly 5 "hard".
+   - Easy = common knowledge; Medium = requires some study; Hard = obscure/advanced.
 
-Generate exactly {num_questions} questions now.
-"""
-    raw_response = _call_gemini(prompt, api_key)
-    parsed = _clean_and_parse_json(raw_response)
+RULES FOR EVERY QUESTION:
+1. "question_text": a clear, unambiguous question.
+2. "options": EXACTLY 4 distinct plausible strings (A, B, C, D). No obviously wrong distractors.
+3. "correct_index": integer 0-3 pointing at the correct option.
+4. "explanation": 1-2 concise factual sentences explaining why the answer is right.
+5. "category": "current_affairs" or "gk" as specified above.
+6. "difficulty_tier": for GK questions use exactly "easy"/"medium"/"hard" per the split above.
+   For current_affairs questions set it to "medium" as a placeholder (it is ignored).
 
-    if not isinstance(parsed, list):
-        raise ValueError("Expected JSON list from LLM for daily quiz generation")
+Output ONLY the JSON array. No commentary, no markdown."""
+    raw_data = _call_gemini_structured(prompt, DAILY_QUIZ_SCHEMA, api_key=api_key)
 
-    # Validate and normalize
-    for i, q in enumerate(parsed):
-        required = {"question_text", "options", "correct_index", "explanation"}
+    if not isinstance(raw_data, list):
+        raise ValueError("Expected a JSON array from Gemini for daily quiz generation")
+
+    # Validate shape and normalize
+    normalized: List[Dict[str, Any]] = []
+    for i, q in enumerate(raw_data):
+        if not isinstance(q, dict):
+            raise ValueError(f"Question #{i + 1} is not an object")
+
+        required = {"question_text", "options", "correct_index", "explanation",
+                    "category", "difficulty_tier"}
         missing = required - set(q.keys())
         if missing:
-            raise ValueError(f"Question #{i + 1} missing fields: {missing}")
+            raise ValueError(f"Question #{i + 1} missing fields: {sorted(missing)}")
 
         if not isinstance(q["options"], list) or len(q["options"]) != 4:
             raise ValueError(f"Question #{i + 1} must have exactly 4 options")
@@ -70,6 +131,160 @@ Generate exactly {num_questions} questions now.
         if not isinstance(idx, int) or idx not in {0, 1, 2, 3}:
             raise ValueError(f"Question #{i + 1} has invalid correct_index: {idx}")
 
-        q.setdefault("explanation", "")
+        category = str(q["category"]).strip().lower()
+        if category not in {"current_affairs", "gk"}:
+            raise ValueError(f"Question #{i + 1} has invalid category: {category}")
 
-    return parsed
+        tier = str(q.get("difficulty_tier", "")).strip().lower()
+        if tier not in TIER_ORDER:
+            raise ValueError(f"Question #{i + 1} has invalid difficulty_tier: {tier}")
+
+        normalized.append({
+            "question_text": q["question_text"],
+            "options": q["options"],
+            "correct_index": idx,
+            "explanation": q.get("explanation", ""),
+            "category": category,
+            # difficulty_tier only meaningful for GK; CA is always tier-less
+            "difficulty_tier": tier if category == "gk" else None,
+        })
+
+    # Verify composition: 5 CA + 15 GK split 5/5/5
+    ca_questions = [q for q in normalized if q["category"] == "current_affairs"]
+    gk_questions = [q for q in normalized if q["category"] == "gk"]
+
+    if len(ca_questions) != CA_COUNT:
+        raise ValueError(
+            f"Expected {CA_COUNT} Current Affairs questions, got {len(ca_questions)}"
+        )
+
+    for tier in TIER_ORDER:
+        count = sum(1 for q in gk_questions if q["difficulty_tier"] == tier)
+        if count != GK_PER_TIER:
+            raise ValueError(
+                f"Expected {GK_PER_TIER} GK questions for tier '{tier}', got {count}"
+            )
+
+    return normalized
+
+
+# ─── Persistence ─────────────────────────────────────────────
+
+
+def _order_questions(questions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Order questions: Current Affairs 1-5, then GK grouped easy→medium→hard."""
+    ca = [q for q in questions if q["category"] == "current_affairs"]
+    gk: List[Dict[str, Any]] = []
+    for tier in TIER_ORDER:
+        gk.extend(
+            q for q in questions
+            if q["category"] == "gk" and q["difficulty_tier"] == tier
+        )
+    return ca + gk
+
+
+def create_daily_quiz_for_date(
+    target_date: date,
+    api_key: Optional[str] = None,
+) -> DailyQuiz:
+    """
+    Generate and persist the daily quiz for `target_date`.
+
+    Raises ValueError if a quiz already exists for that date — callers should
+    use ensure_daily_quiz_for_date() for idempotent behaviour.
+    """
+    if DailyQuiz.objects.filter(date=target_date).exists():
+        raise ValueError(f"Quiz for {target_date} already exists")
+
+    questions_data = generate_daily_quiz_questions(target_date, api_key=api_key)
+    ordered = _order_questions(questions_data)
+
+    with transaction.atomic():
+        quiz = DailyQuiz.objects.create(
+            date=target_date,
+            title=f'Daily GK & Current Affairs — {target_date.strftime("%B %d, %Y")}',
+        )
+        DailyQuestion.objects.bulk_create([
+            DailyQuestion(
+                quiz=quiz,
+                question_text=q["question_text"],
+                options=q["options"],
+                correct_index=q["correct_index"],
+                explanation=q.get("explanation", ""),
+                category=q["category"],
+                difficulty_tier=q["difficulty_tier"],
+                order=i + 1,
+            )
+            for i, q in enumerate(ordered)
+        ])
+
+    return quiz
+
+
+def ensure_daily_quiz_for_date(
+    target_date: date,
+    api_key: Optional[str] = None,
+) -> DailyQuiz:
+    """Return the quiz for `target_date`, generating + persisting it if missing."""
+    existing = DailyQuiz.objects.filter(date=target_date).first()
+    if existing is not None:
+        return existing
+    return create_daily_quiz_for_date(target_date, api_key=api_key)
+
+
+# ─── Serving & gamification helpers ─────────────────────────
+
+
+def questions_for_user(quiz: DailyQuiz, tier: str) -> List[DailyQuestion]:
+    """
+    The 10 questions a user sees: 5 universal Current Affairs + the 5 GK
+    questions matching their skill tier. Ordered CA first, then GK.
+    """
+    from django.db.models import Q
+
+    return list(
+        quiz.questions.filter(
+            Q(category=DailyQuestion.Category.CURRENT_AFFAIRS)
+            | Q(category=DailyQuestion.Category.GK, difficulty_tier=tier)
+        ).order_by('order')
+    )
+
+
+def _shift_tier(tier: str, delta: int) -> str:
+    """Move one step up (+1) or down (-1) the easy→medium→hard ladder."""
+    index = TIER_ORDER.index(tier)
+    new_index = min(len(TIER_ORDER) - 1, max(0, index + delta))
+    return TIER_ORDER[new_index]
+
+
+def apply_quiz_completion(profile: UserProfile, gk_correct: int, completed_date) -> None:
+    """
+    Update a profile after a daily quiz submission, in place (no save):
+
+    1. Streak: if the user also completed yesterday, current_streak += 1;
+       otherwise the streak resets to 1. longest_streak is kept in sync.
+    2. Skill tier: GK performance moves the tier up/down the ladder:
+       >= 4/5 correct promotes, <= 1/5 correct demotes, otherwise unchanged.
+    """
+    from datetime import timedelta
+
+    today = completed_date
+    last = profile.last_quiz_completed_date
+
+    if last == today:
+        # Completed today already (duplicate) — do not touch the streak.
+        pass
+    elif last == today - timedelta(days=1):
+        profile.current_streak += 1
+    else:
+        # No completion yesterday → consecutive-day streak broken, restart at 1.
+        profile.current_streak = 1
+
+    profile.longest_streak = max(profile.longest_streak, profile.current_streak)
+    profile.last_quiz_completed_date = today
+
+    # Adaptive difficulty: adjust GK skill tier from today's GK performance.
+    if gk_correct >= PROMOTE_THRESHOLD:
+        profile.gk_skill_tier = _shift_tier(profile.gk_skill_tier, +1)
+    elif gk_correct <= DEMOTE_THRESHOLD:
+        profile.gk_skill_tier = _shift_tier(profile.gk_skill_tier, -1)

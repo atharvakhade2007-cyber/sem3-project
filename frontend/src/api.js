@@ -1,80 +1,75 @@
 // API calls to Django backend (same origin, /api/ prefix)
-// No CORS or proxy needed when served from Django
+// Routed through apiClient.js which injects the JWT Bearer token and
+// auto-refreshes on 401. No CORS or proxy needed when served from Django.
 
-async function apiCall(endpoint, method = 'GET', body = null) {
-  const opts = {
+import { apiJson } from './apiClient';
+
+function apiCall(endpoint, method = 'GET', body = null) {
+  return apiJson(`/api${endpoint}`, {
     method,
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Requested-With': 'XMLHttpRequest',
-    },
-    credentials: 'same-origin',
-  };
-
-  // Get CSRF token from cookies
-  const csrfToken = document.cookie
-    .split('; ')
-    .find(row => row.startsWith('csrftoken='))
-    ?.split('=')[1];
-
-  if (csrfToken) {
-    opts.headers['X-CSRFToken'] = csrfToken;
-  }
-
-  if (body) {
-    opts.body = JSON.stringify(body);
-  }
-
-  const res = await fetch(`/api${endpoint}`, opts);
-
-  // Handle non-JSON responses
-  const contentType = res.headers.get('content-type');
-  if (!contentType || !contentType.includes('application/json')) {
-    const text = await res.text();
-    throw new Error(`Expected JSON but got: ${text.substring(0, 200)}...`);
-  }
-
-  const data = await res.json();
-
-  if (!res.ok) {
-    throw new Error(data.error || `API error: ${res.status}`);
-  }
-
-  return data;
+    body: body === null ? undefined : JSON.stringify(body),
+  });
 }
 
-// ─── Document APIs ─────────────────────────────
+function apiCallV2(endpoint, method = 'GET', body = null) {
+  return apiJson(`/api/v2${endpoint}`, {
+    method,
+    body: body === null ? undefined : JSON.stringify(body),
+  });
+}
+
+// ─── Auth APIs ────────────────────────────────────
+
+export async function login(usernameOrEmail, password, rememberMe = false) {
+  return apiCall('/auth/login/', 'POST', {
+    username_or_email: usernameOrEmail,
+    password,
+    remember_me: rememberMe,
+  });
+}
+
+export async function signup(username, email, password) {
+  return apiCall('/auth/signup/', 'POST', { username, email, password });
+}
+
+export async function logout() {
+  return apiCall('/auth/logout/', 'POST');
+}
+
+export async function fetchProfile() {
+  return apiCall('/user/profile/', 'GET');
+}
+
+export async function updateProfile(payload) {
+  return apiCall('/user/profile/update/', 'PATCH', payload);
+}
+
+export async function changePassword(oldPassword, newPassword, confirmPassword) {
+  return apiCall('/user/change-password/', 'POST', {
+    old_password: oldPassword,
+    new_password: newPassword,
+    confirm_password: confirmPassword,
+  });
+}
+
+export async function requestPasswordReset(email) {
+  return apiCall('/auth/password-reset/', 'POST', { email });
+}
+
+export async function confirmPasswordReset(uid, token, newPassword) {
+  return apiCall('/auth/password-reset-confirm/', 'POST', {
+    uid,
+    token,
+    new_password: newPassword,
+  });
+}
+
+// ─── Document APIs (pages legacy) ─────────────────
 
 export async function uploadDocument(file) {
   const formData = new FormData();
   formData.append('file', file);
-
-  const csrfToken = document.cookie
-    .split('; ')
-    .find(row => row.startsWith('csrftoken='))
-    ?.split('=')[1];
-
-  const headers = {};
-  if (csrfToken) {
-    headers['X-CSRFToken'] = csrfToken;
-  }
-
-  const res = await fetch('/api/documents/upload/', {
-    method: 'POST',
-    headers,
-    body: formData,
-    credentials: 'same-origin',
-  });
-
-  const contentType = res.headers.get('content-type');
-  if (!contentType || !contentType.includes('application/json')) {
-    const text = await res.text();
-    throw new Error(`Expected JSON but got: ${text.substring(0, 200)}...`);
-  }
-
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Upload failed');
-  return data;
+  return apiJson('/api/documents/upload/', { method: 'POST', body: formData });
 }
 
 export async function generateSummary(docId, apiKey = null) {
@@ -85,7 +80,7 @@ export async function generateFlashcards(docId, apiKey = null) {
   return apiCall(`/documents/${docId}/flashcards/`, 'POST', { api_key: apiKey });
 }
 
-// ─── Adaptive Test APIs ────────────────────────
+// ─── Adaptive Test APIs (pages legacy) ────────────
 
 export async function generateQuestionBank(docId, numQuestions = 20) {
   return apiCall('/test/generate-bank/', 'POST', {
@@ -95,9 +90,7 @@ export async function generateQuestionBank(docId, numQuestions = 20) {
 }
 
 export async function startTest(docId) {
-  return apiCall('/test/start/', 'POST', {
-    document_id: docId,
-  });
+  return apiCall('/test/start/', 'POST', { document_id: docId });
 }
 
 export async function submitAnswer(sessionId, questionId, selectedIndex, timeTakenSec) {
@@ -110,52 +103,10 @@ export async function submitAnswer(sessionId, questionId, selectedIndex, timeTak
 }
 
 export async function completeTest(sessionId) {
-  return apiCall('/test/complete/', 'POST', {
-    session_id: sessionId,
-  });
+  return apiCall('/test/complete/', 'POST', { session_id: sessionId });
 }
 
-// ─── Daily Quiz APIs (v2 — study_core) ───────────
-
-async function apiCallV2(endpoint, method = 'GET', body = null) {
-  const opts = {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Requested-With': 'XMLHttpRequest',
-    },
-    credentials: 'same-origin',
-  };
-
-  const csrfToken = document.cookie
-    .split('; ')
-    .find(row => row.startsWith('csrftoken='))
-    ?.split('=')[1];
-
-  if (csrfToken) {
-    opts.headers['X-CSRFToken'] = csrfToken;
-  }
-
-  if (body) {
-    opts.body = JSON.stringify(body);
-  }
-
-  const res = await fetch(`/api/v2${endpoint}`, opts);
-
-  const contentType = res.headers.get('content-type');
-  if (!contentType || !contentType.includes('application/json')) {
-    const text = await res.text();
-    throw new Error(`Expected JSON but got: ${text.substring(0, 200)}...`);
-  }
-
-  const data = await res.json();
-
-  if (!res.ok) {
-    throw new Error(data.error || `API error: ${res.status}`);
-  }
-
-  return data;
-}
+// ─── Daily Quiz APIs (v2 — study_core) ────────────
 
 export async function fetchDailyQuiz() {
   return apiCallV2('/daily-quiz/today/');
@@ -168,6 +119,71 @@ export async function submitDailyQuiz(answers, totalTimeSec) {
   });
 }
 
-export async function fetchDailyLeaderboard() {
-  return apiCallV2('/daily-quiz/leaderboard/');
+export async function fetchDailyLeaderboard(tab = 'score') {
+  return apiCallV2(`/daily-quiz/leaderboard/?tab=${tab}`);
+}
+
+// ─── Social APIs (friends & requests) ─────────────
+
+export async function fetchFriends() {
+  return apiCall('/social/friends/');
+}
+
+export async function fetchFriendRequests() {
+  return apiCall('/social/requests/');
+}
+
+export async function fetchPendingCount() {
+  return apiCall('/social/pending-count/');
+}
+
+export async function sendFriendRequest(userId) {
+  return apiCall('/social/request/send/', 'POST', { user_id: userId });
+}
+
+export async function respondFriendRequest(requestId, action) {
+  return apiCall(`/social/request/${requestId}/respond/`, 'POST', { action });
+}
+
+export async function cancelFriendRequest(requestId) {
+  return apiCall(`/social/request/${requestId}/cancel/`, 'POST');
+}
+
+export async function manageFriend(userId, action) {
+  return apiCall('/social/friends/manage/', 'POST', { user_id: userId, action });
+}
+
+export async function searchUsers(query) {
+  return apiCall(`/social/users/search/?q=${encodeURIComponent(query)}`);
+}
+
+// ─── Duel (QuizChallenge) APIs ─────────────────────
+
+export async function fetchMyCompletedSessions() {
+  return apiCall('/challenges/sessions/');
+}
+
+export async function createChallenge(sessionId, challengedUserId) {
+  return apiCall('/challenges/create/', 'POST', {
+    session_id: sessionId,
+    challenged_user_id: challengedUserId,
+  });
+}
+
+export async function fetchChallenges() {
+  return apiCall('/challenges/');
+}
+
+export async function fetchChallengeQuestions(challengeId) {
+  return apiCall(`/challenges/${challengeId}/questions/`);
+}
+
+export async function submitChallenge(challengeId, answers) {
+  return apiCall(`/challenges/${challengeId}/submit/`, 'POST', { answers });
+}
+
+// ─── Friend-scoped Leaderboard ─────────────────────
+
+export async function fetchFriendLeaderboard(metric = 'all_time') {
+  return apiCall(`/leaderboard/friends/?metric=${metric}`);
 }

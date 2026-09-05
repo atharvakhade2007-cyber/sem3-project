@@ -4,19 +4,71 @@ from django.contrib.auth.models import User
 
 
 class UserProfile(models.Model):
-    """OneToOne extension of Django User with Elo rating and stats."""
+    """OneToOne extension of Django User with Elo rating and gamification stats."""
+
+    class GKTier(models.TextChoices):
+        EASY = 'easy', 'Easy'
+        MEDIUM = 'medium', 'Medium'
+        HARD = 'hard', 'Hard'
+
+    class Avatar(models.TextChoices):
+        """Predefined avatar selector — stored as a key, rendered as an emoji."""
+        OWL = 'owl', '🦉 Wise Owl'
+        ROCKET = 'rocket', '🚀 Rocket'
+        BRAIN = 'brain', '🧠 Brainiac'
+        BOOKS = 'books', '📚 Bookworm'
+        BOLT = 'bolt', '⚡ Speedster'
+        TARGET = 'target', '🎯 Sharpshooter'
+        WAVE = 'wave', '🌊 Deep Thinker'
+        FIRE = 'fire', '🔥 Streak Master'
+
     user = models.OneToOneField(
         User, on_delete=models.CASCADE, related_name='study_profile'
+    )
+    bio = models.TextField(
+        blank=True, default='', max_length=300,
+        help_text='Short bio shown on your public profile (max 300 chars).'
+    )
+    avatar = models.CharField(
+        max_length=20,
+        choices=Avatar.choices,
+        default=Avatar.OWL,
     )
     elo_rating = models.FloatField(default=1200.0)
     total_questions_answered = models.IntegerField(default=0)
 
+    # ── Daily Quiz gamification ──
+    gk_skill_tier = models.CharField(
+        max_length=10,
+        choices=GKTier.choices,
+        default=GKTier.MEDIUM,
+        help_text='Adaptive GK difficulty tier served to this user.'
+    )
+    current_streak = models.IntegerField(default=0)
+    longest_streak = models.IntegerField(default=0)
+    last_quiz_completed_date = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
     def __str__(self):
-        return f"{self.user.username} (Elo: {self.elo_rating:.0f})"
+        return f"{self.user.username} (Elo: {self.elo_rating:.0f}, Streak: {self.current_streak})"
+
+    @property
+    def avatar_emoji(self):
+        """Render the stored avatar key as its emoji only."""
+        return dict(self.Avatar.choices).get(self.avatar, '🦉').split(' ', 1)[0]
+
+    @property
+    def total_quizzes_completed(self):
+        """Total completed quizzes (daily quiz attempts + adaptive test sessions)."""
+        return (
+            DailyQuizSession.objects.filter(user=self.user).count()
+            + TestSession.objects.filter(user=self.user, is_completed=True).count()
+        )
 
     class Meta:
         indexes = [
             models.Index(fields=['elo_rating']),
+            models.Index(fields=['current_streak', 'longest_streak']),
         ]
 
 
@@ -123,12 +175,13 @@ class TestSession(models.Model):
     start_elo = models.FloatField(default=1200.0)
     end_elo = models.FloatField(null=True, blank=True)
     is_completed = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
 
     def __str__(self):
         return f"Session {self.id} ({self.user.username})"
 
     class Meta:
-        ordering = ['-id']
+        ordering = ['-created_at', '-id']
         indexes = [
             models.Index(fields=['user']),
             models.Index(fields=['challenge', 'user']),
@@ -179,7 +232,25 @@ class DailyQuiz(models.Model):
 
 
 class DailyQuestion(models.Model):
-    """A multiple-choice question belonging to a daily quiz."""
+    """A multiple-choice question belonging to a daily quiz.
+
+    Each daily quiz stores 20 questions:
+    - 5 Current Affairs questions (category='current_affairs'), identical for
+      every user — these are universally shared each day.
+    - 15 GK questions (category='gk'), 5 per static difficulty tier
+      (easy/medium/hard). The /today/ endpoint serves the 5 GK questions
+      matching the requesting user's gk_skill_tier.
+    """
+
+    class Category(models.TextChoices):
+        CURRENT_AFFAIRS = 'current_affairs', 'Current Affairs'
+        GK = 'gk', 'General Knowledge'
+
+    class DifficultyTier(models.TextChoices):
+        EASY = 'easy', 'Easy'
+        MEDIUM = 'medium', 'Medium'
+        HARD = 'hard', 'Hard'
+
     quiz = models.ForeignKey(
         DailyQuiz, on_delete=models.CASCADE, related_name='questions'
     )
@@ -188,12 +259,27 @@ class DailyQuestion(models.Model):
     correct_index = models.IntegerField(default=0)  # 0-3
     explanation = models.TextField(blank=True, default='')
     order = models.IntegerField(default=0)
+    category = models.CharField(
+        max_length=20,
+        choices=Category.choices,
+        default=Category.GK,
+    )
+    difficulty_tier = models.CharField(
+        max_length=10,
+        choices=DifficultyTier.choices,
+        null=True,
+        blank=True,
+        help_text='Static difficulty for GK questions (None for Current Affairs).'
+    )
 
     def __str__(self):
         return f"Q{self.order}: {self.question_text[:60]}..."
 
     class Meta:
         ordering = ['order']
+        indexes = [
+            models.Index(fields=['quiz', 'category', 'difficulty_tier']),
+        ]
 
 
 class DailyQuizSession(models.Model):
@@ -222,4 +308,201 @@ class DailyQuizSession(models.Model):
         ]
         indexes = [
             models.Index(fields=['quiz', '-score', 'total_time_sec']),
+        ]
+
+
+# ═══════════════════════════════════════════════
+#  Social Graph & Direct Challenges
+# ═══════════════════════════════════════════════
+
+
+class Friendship(models.Model):
+    """One row per unordered pair of users — friendship is stored symmetrically.
+
+    State machine: pending → accepted | declined, plus blocked.
+
+    Canonicalisation: ``sender`` is always the user with the LOWER pk and
+    ``receiver`` the HIGHER pk (enforced by a DB CheckConstraint + swap in
+    save()). This makes the UNIQUE(sender, receiver) constraint meaningful and
+    makes it impossible to store A→B and B→A as two distinct rows. The
+    direction of a pending request lives in ``initiator``.
+    """
+
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending'
+        ACCEPTED = 'accepted', 'Accepted'
+        DECLINED = 'declined', 'Declined'
+        BLOCKED = 'blocked', 'Blocked'
+
+    sender = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='friendship_as_sender'
+    )
+    receiver = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='friendship_as_receiver'
+    )
+    initiator = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='friendship_initiated',
+        help_text='User who sent the request (or who performed the block).'
+    )
+    blocker = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='friendship_blocks',
+        help_text='Set when status=blocked — the user who issued the block.'
+    )
+    status = models.CharField(
+        max_length=10, choices=Status.choices, default=Status.PENDING, db_index=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        # Canonicalise the unordered pair so (sender, receiver) is unique.
+        if self.sender_id > self.receiver_id:
+            self.sender_id, self.receiver_id = self.receiver_id, self.sender_id
+        super().save(*args, **kwargs)
+
+    def counterpart(self, user):
+        """Return the other user of the pair (falls back to sender if unknown)."""
+        if self.sender_id == user.pk:
+            return self.receiver
+        return self.sender
+
+    # ── Class helpers ──────────────────────────────────────
+
+    @classmethod
+    def friend_ids(cls, user):
+        """Pks of every confirmed friend of ``user`` (symmetrical, one row)."""
+        ids = set(cls.objects.filter(
+            models.Q(sender=user) | models.Q(receiver=user),
+            status=cls.Status.ACCEPTED,
+        ).values_list('sender_id', 'receiver_id'))
+        result = set()
+        for s, r in ids:
+            result.add(r if s == user.pk else s)
+        return result
+
+    @classmethod
+    def are_friends(cls, a, b):
+        if a.pk == b.pk:
+            return False
+        return cls.objects.filter(
+            models.Q(sender=a, receiver=b) | models.Q(sender=b, receiver=a),
+            status=cls.Status.ACCEPTED,
+        ).exists()
+
+    @classmethod
+    def relationship_between(cls, a, b):
+        """Return the Friendship row spanning a/b (any status) or None."""
+        if a.pk == b.pk:
+            return None
+        return cls.objects.filter(
+            models.Q(sender=a, receiver=b) | models.Q(sender=b, receiver=a),
+        ).first()
+
+    @classmethod
+    def is_blocked(cls, a, b):
+        row = cls.relationship_between(a, b)
+        return row is not None and row.status == cls.Status.BLOCKED
+
+    def __str__(self):
+        return f"{self.sender.username} ↔ {self.receiver.username}: {self.status}"
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['sender', 'receiver'],
+                name='uniq_friendship_pair',
+            ),
+            models.CheckConstraint(
+                check=models.Q(sender_id__lt=models.F('receiver_id')),
+                name='friendship_canonical_order',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['sender', 'status']),
+            models.Index(fields=['receiver', 'status']),
+        ]
+
+
+class QuizChallenge(models.Model):
+    """An asynchronous 1v1 duel over an identical fixed question set.
+
+    The challenger completes an adaptive PDF test session first; the answered
+    question ids are snapshotted into ``question_ids`` so the challenged user
+    later answers the exact same questions. Scoring is correctness count, with
+    total time as the tiebreaker.
+    """
+
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending'
+        COMPLETED = 'completed', 'Completed'
+        EXPIRED = 'expired', 'Expired'
+
+    session = models.ForeignKey(
+        TestSession, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='quiz_challenges',
+        help_text="Challenger's completed adaptive session (the quiz instance)."
+    )
+    document = models.ForeignKey(
+        Document, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='quiz_challenges',
+    )
+    challenger = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='duels_sent'
+    )
+    challenged_user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='duels_received'
+    )
+    status = models.CharField(
+        max_length=10, choices=Status.choices, default=Status.PENDING, db_index=True
+    )
+    question_ids = models.JSONField(
+        default=list, blank=True,
+        help_text='Ordered snapshot of question ids the challenged user must answer.'
+    )
+    question_data = models.JSONField(
+        default=list, blank=True,
+        help_text=('Self-contained ordered snapshot of the duel questions '
+                   '[{id, question_text, options, correct_index}] — grading is '
+                   'independent of the originating document stack.')
+    )
+    document_filename = models.CharField(
+        max_length=255, blank=True, default='',
+        help_text='Denormalised source document name shown in duel lists.'
+    )
+    challenger_score = models.IntegerField(default=0)
+    challenged_score = models.IntegerField(null=True, blank=True)
+    challenger_time_seconds = models.FloatField(default=0.0)
+    challenged_time_seconds = models.FloatField(null=True, blank=True)
+    winner = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='duels_won',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    expires_at = models.DateTimeField()
+
+    def __str__(self):
+        return (
+            f"{self.challenger.username} ⚔ {self.challenged_user.username}: "
+            f"{self.status}"
+        )
+
+    @property
+    def question_count(self):
+        return len(self.question_data or self.question_ids or [])
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['session', 'challenged_user'],
+                condition=models.Q(status='pending'),
+                name='uniq_pending_challenge_pair',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['challenged_user', 'status']),
+            models.Index(fields=['challenger', 'status']),
+            models.Index(fields=['status', 'expires_at']),
         ]

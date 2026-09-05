@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { startTest, submitAnswer, completeTest } from '../api';
+import { useUi } from '../context/UiContext';
 
 // ─── State Machine States ──────────────────────
 const STATES = {
@@ -37,6 +38,7 @@ function DiffBadge({ label }) {
 }
 
 export default function AdaptiveTest({ documentId }) {
+  const { openChallengeWithSession } = useUi();
   const [state, setState] = useState(STATES.IDLE);
   const [sessionId, setSessionId] = useState(null);
   const [question, setQuestion] = useState(null);
@@ -214,6 +216,27 @@ export default function AdaptiveTest({ documentId }) {
             {results.rating_badge}
           </div>
           <h2 style={{ fontSize: '1.5rem' }}>Test Complete!</h2>
+        </div>
+
+        {/* Challenge a friend with this exact session */}
+        <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+          <button
+            onClick={() => openChallengeWithSession({
+              sessionId,
+              label: `${results.correct_count}/${results.total_questions} correct · ${results.accuracy}% accuracy`,
+            })}
+            style={{
+              padding: '0.8rem 1.8rem', borderRadius: 12, cursor: 'pointer',
+              background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
+              border: 'none', color: '#fff', fontWeight: 800, fontSize: '0.95rem',
+              boxShadow: '0 6px 20px rgba(245,158,11,0.35)',
+            }}
+          >
+            ⚔️ Challenge a Friend to Beat This
+          </button>
+          <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.5rem' }}>
+            A friend answers these exact {results.total_questions} questions — higher score wins, time breaks ties.
+          </p>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
