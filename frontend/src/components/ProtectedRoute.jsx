@@ -13,14 +13,7 @@ export default function ProtectedRoute({ children }) {
         alignItems: 'center',
         justifyContent: 'center',
       }}>
-        <div style={{
-          width: 40,
-          height: 40,
-          border: '3px solid rgba(99,102,241,0.3)',
-          borderTopColor: '#6366f1',
-          borderRadius: '50%',
-          animation: 'spin 0.8s linear infinite',
-        }} />
+        <div className="spinner" />
       </div>
     );
   }

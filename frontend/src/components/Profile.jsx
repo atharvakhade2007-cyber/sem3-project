@@ -9,37 +9,20 @@ const TABS = [
   { key: 'security', label: '🔒 Security' },
 ];
 
-const inputStyle = {
-  width: '100%',
-  padding: '0.75rem 1rem',
-  borderRadius: 10,
-  border: '1px solid var(--input-border)',
-  background: 'var(--input-bg)',
-  color: 'var(--text)',
-  fontSize: '0.95rem',
-  outline: 'none',
-};
-
-const labelStyle = {
-  display: 'block',
-  fontSize: '0.82rem',
-  fontWeight: 600,
-  color: 'var(--text-secondary)',
-  marginBottom: '0.35rem',
-};
-
 function Alert({ type, children }) {
   const isError = type === 'error';
   return (
-    <div style={{
-      background: isError ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)',
-      border: `1px solid ${isError ? 'rgba(239,68,68,0.35)' : 'rgba(16,185,129,0.35)'}`,
-      color: isError ? '#fca5a5' : '#34d399',
-      borderRadius: 10,
-      padding: '0.7rem 1rem',
-      fontSize: '0.85rem',
-      marginBottom: '1rem',
-    }}>
+    <div
+      style={{
+        background: isError ? 'color-mix(in srgb, var(--danger) 10%, transparent)' : 'color-mix(in srgb, var(--success) 10%, transparent)',
+        border: `1px solid ${isError ? 'color-mix(in srgb, var(--danger) 30%, transparent)' : 'color-mix(in srgb, var(--success) 30%, transparent)'}`,
+        color: isError ? 'var(--danger)' : 'var(--success)',
+        borderRadius: 'var(--radius-sm)',
+        padding: '0.7rem 1rem',
+        fontSize: '0.85rem',
+        marginBottom: '1rem',
+      }}
+    >
       {children}
     </div>
   );
@@ -47,16 +30,12 @@ function Alert({ type, children }) {
 
 function StatCard({ icon, label, value }) {
   return (
-    <div style={{
-      background: 'var(--card-bg)',
-      border: '1px solid var(--card-border)',
-      borderRadius: 14,
-      padding: '1.1rem 1.25rem',
-      textAlign: 'center',
-    }}>
-      <div style={{ fontSize: '1.5rem', marginBottom: '0.35rem' }}>{icon}</div>
-      <div style={{ fontSize: '1.5rem', fontWeight: 800, lineHeight: 1.1 }}>{value}</div>
-      <div style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', marginTop: '0.25rem' }}>
+    <div className="card card-hover" style={{ padding: '1.25rem 1.35rem', textAlign: 'center' }}>
+      <div style={{ fontSize: '1.4rem', marginBottom: '0.4rem' }}>{icon}</div>
+      <div style={{ fontSize: '1.55rem', fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>
+        {value}
+      </div>
+      <div className="t-caption" style={{ marginTop: '0.3rem', fontSize: '0.76rem' }}>
         {label}
       </div>
     </div>
@@ -140,47 +119,45 @@ export default function Profile() {
     : '—';
 
   return (
-    <div style={{ maxWidth: 900, margin: '0 auto', padding: '2rem 1.5rem' }}>
+    <div style={{ maxWidth: 900, margin: '0 auto', padding: '3rem 1.5rem' }}>
       {/* Header */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: '1rem',
-        marginBottom: '1.5rem', flexWrap: 'wrap',
-      }}>
-        <div style={{
-          width: 64, height: 64, borderRadius: '50%',
-          background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: '1.9rem',
-          border: '2px solid var(--card-border)',
-        }}>
+      <div
+        className="rise"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '1.1rem',
+          marginBottom: '1.75rem',
+          flexWrap: 'wrap',
+        }}
+      >
+        <div
+          className="icon-tile"
+          style={{ width: 64, height: 64, borderRadius: '50%', fontSize: '1.7rem' }}
+        >
           {user.avatar_emoji || '🦉'}
         </div>
         <div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 800 }}>{user.username}</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+          <h1 className="t-headline" style={{ fontSize: '1.5rem' }}>{user.username}</h1>
+          <p className="t-caption">
             {user.email} · 🎯 {TIER_LABELS[user.gk_skill_tier] || user.gk_skill_tier || 'Intermediate'}
           </p>
         </div>
       </div>
 
       {/* Tabs */}
-      <div style={{
-        display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap',
-      }}>
-        {TABS.map(t => {
-          const active = tab === t.key;
-          return (
-            <button key={t.key} onClick={() => { setTab(t.key); setAlert(null); }} style={{
-              background: active ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : 'var(--card-bg)',
-              border: active ? 'none' : '1px solid var(--card-border)',
-              borderRadius: 10, padding: '0.55rem 1.1rem',
-              color: active ? '#fff' : 'var(--text-secondary)',
-              fontSize: '0.88rem', fontWeight: 600, cursor: 'pointer',
-            }}>
+      <div className="rise rise-1" style={{ marginBottom: '1.75rem' }}>
+        <div className="segmented">
+          {TABS.map(t => (
+            <button
+              key={t.key}
+              onClick={() => { setTab(t.key); setAlert(null); }}
+              className={tab === t.key ? 'active' : ''}
+            >
               {t.label}
             </button>
-          );
-        })}
+          ))}
+        </div>
       </div>
 
       {alert && <Alert type={alert.type}>{alert.text}</Alert>}
@@ -189,31 +166,24 @@ export default function Profile() {
       {tab === 'overview' && (
         <div>
           {user.bio && (
-            <div style={{
-              background: 'var(--card-bg)', border: '1px solid var(--card-border)',
-              borderRadius: 14, padding: '1.25rem 1.5rem', marginBottom: '1rem',
-            }}>
-              <div style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 700, marginBottom: '0.3rem' }}>
-                BIO
+            <div className="card" style={{ padding: '1.4rem 1.6rem', marginBottom: '14px' }}>
+              <div className="t-eyebrow" style={{ marginBottom: '0.4rem' }}>
+                Bio
               </div>
               <p style={{ fontSize: '0.95rem', lineHeight: 1.6 }}>{user.bio}</p>
             </div>
           )}
 
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-            gap: '1rem',
-          }}>
-            <StatCard icon="🔥" label="Current Streak" value={user.current_streak ?? 0} />
-            <StatCard icon="🏆" label="Longest Streak" value={user.longest_streak ?? 0} />
-            <StatCard icon="🎯" label="Skill Level" value={TIER_LABELS[user.gk_skill_tier] || user.gk_skill_tier || '—'} />
-            <StatCard icon="📈" label="Elo Rating" value={Math.round(user.elo_rating ?? 1200)} />
-            <StatCard icon="📝" label="Quizzes Completed" value={user.total_quizzes_completed ?? 0} />
-            <StatCard icon="❓" label="Questions Answered" value={user.total_questions_answered ?? 0} />
+          <div className="bento">
+            <div className="span-2"><StatCard icon="🔥" label="Current Streak" value={user.current_streak ?? 0} /></div>
+            <div className="span-2"><StatCard icon="🏆" label="Longest Streak" value={user.longest_streak ?? 0} /></div>
+            <div className="span-2"><StatCard icon="🎯" label="Skill Level" value={TIER_LABELS[user.gk_skill_tier] || user.gk_skill_tier || '—'} /></div>
+            <div className="span-2"><StatCard icon="📈" label="Elo Rating" value={Math.round(user.elo_rating ?? 1200)} /></div>
+            <div className="span-2"><StatCard icon="📝" label="Quizzes Completed" value={user.total_quizzes_completed ?? 0} /></div>
+            <div className="span-2"><StatCard icon="❓" label="Questions Answered" value={user.total_questions_answered ?? 0} /></div>
           </div>
 
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '1.5rem' }}>
+          <p className="t-caption" style={{ color: 'var(--text-muted)', fontSize: '0.78rem', marginTop: '1.5rem' }}>
             Member since {memberSince}
           </p>
         </div>
@@ -221,52 +191,52 @@ export default function Profile() {
 
       {/* ── Edit Details ── */}
       {tab === 'edit' && (
-        <form onSubmit={saveDetails} style={{
-          background: 'var(--card-bg)', border: '1px solid var(--card-border)',
-          borderRadius: 16, padding: '1.5rem',
-        }}>
+        <form onSubmit={saveDetails} className="card" style={{ padding: '1.75rem' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
             <div>
-              <label style={labelStyle}>Username</label>
+              <label className="label">Username</label>
               <input
                 value={edit.username}
                 onChange={e => setEdit(p => ({ ...p, username: e.target.value }))}
-                style={inputStyle}
+                className="input"
               />
             </div>
             <div>
-              <label style={labelStyle}>Email</label>
+              <label className="label">Email</label>
               <input
                 type="email"
                 value={edit.email}
                 onChange={e => setEdit(p => ({ ...p, email: e.target.value }))}
-                style={inputStyle}
+                className="input"
               />
             </div>
           </div>
 
-          <div style={{ marginBottom: '1.25rem' }}>
-            <label style={labelStyle}>Bio</label>
+          <div style={{ marginBottom: '1.4rem' }}>
+            <label className="label">Bio</label>
             <textarea
               value={edit.bio}
               maxLength={300}
               rows={3}
               onChange={e => setEdit(p => ({ ...p, bio: e.target.value }))}
               placeholder="Tell others a bit about yourself…"
-              style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }}
+              className="textarea"
+              style={{ resize: 'vertical' }}
             />
             <div style={{ textAlign: 'right', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
               {edit.bio.length}/300
             </div>
           </div>
 
-          <div style={{ marginBottom: '1.5rem' }}>
-            <label style={labelStyle}>Avatar</label>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(64px, 1fr))',
-              gap: '0.6rem',
-            }}>
+          <div style={{ marginBottom: '1.6rem' }}>
+            <label className="label">Avatar</label>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(64px, 1fr))',
+                gap: '0.6rem',
+              }}
+            >
               {AVATARS.map(a => {
                 const selected = edit.avatar === a.key;
                 return (
@@ -277,14 +247,15 @@ export default function Profile() {
                     onClick={() => setEdit(p => ({ ...p, avatar: a.key }))}
                     style={{
                       aspectRatio: '1',
-                      borderRadius: 12,
+                      borderRadius: 'var(--radius-sm)',
                       fontSize: '1.5rem',
                       cursor: 'pointer',
-                      background: selected ? 'rgba(99,102,241,0.2)' : 'var(--input-bg)',
+                      background: selected ? 'var(--accent-soft)' : 'var(--input-bg)',
                       border: selected
-                        ? '2px solid #6366f1'
+                        ? '2px solid var(--accent)'
                         : '1px solid var(--input-border)',
-                      transition: 'all 0.15s',
+                      transition: 'transform 0.2s ease, border-color 0.2s ease',
+                      transform: selected ? 'scale(1.05)' : 'none',
                     }}
                   >
                     {a.emoji}
@@ -294,12 +265,7 @@ export default function Profile() {
             </div>
           </div>
 
-          <button type="submit" disabled={busy} style={{
-            background: busy ? 'var(--card-border)' : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-            color: busy ? 'var(--text-muted)' : '#fff',
-            border: 'none', borderRadius: 10, padding: '0.75rem 2rem',
-            fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer',
-          }}>
+          <button type="submit" disabled={busy} className="btn btn-primary">
             {busy ? 'Saving…' : 'Save Changes'}
           </button>
         </form>
@@ -307,51 +273,43 @@ export default function Profile() {
 
       {/* ── Security ── */}
       {tab === 'security' && (
-        <form onSubmit={savePassword} style={{
-          background: 'var(--card-bg)', border: '1px solid var(--card-border)',
-          borderRadius: 16, padding: '1.5rem', maxWidth: 440,
-        }}>
+        <form onSubmit={savePassword} className="card" style={{ padding: '1.75rem', maxWidth: 460 }}>
           <div style={{ marginBottom: '1rem' }}>
-            <label style={labelStyle}>Current Password</label>
+            <label className="label">Current Password</label>
             <input
               type="password"
               required
               value={pwd.old_password}
               onChange={e => setPwd(p => ({ ...p, old_password: e.target.value }))}
-              style={inputStyle}
+              className="input"
               autoComplete="current-password"
             />
           </div>
           <div style={{ marginBottom: '1rem' }}>
-            <label style={labelStyle}>New Password</label>
+            <label className="label">New Password</label>
             <input
               type="password"
               required
               value={pwd.new_password}
               onChange={e => setPwd(p => ({ ...p, new_password: e.target.value }))}
               placeholder="8+ chars, a number and a symbol"
-              style={inputStyle}
+              className="input"
               autoComplete="new-password"
             />
           </div>
           <div style={{ marginBottom: '1.5rem' }}>
-            <label style={labelStyle}>Confirm New Password</label>
+            <label className="label">Confirm New Password</label>
             <input
               type="password"
               required
               value={pwd.confirm_password}
               onChange={e => setPwd(p => ({ ...p, confirm_password: e.target.value }))}
-              style={inputStyle}
+              className="input"
               autoComplete="new-password"
             />
           </div>
 
-          <button type="submit" disabled={busy} style={{
-            background: busy ? 'var(--card-border)' : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-            color: busy ? 'var(--text-muted)' : '#fff',
-            border: 'none', borderRadius: 10, padding: '0.75rem 2rem',
-            fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer',
-          }}>
+          <button type="submit" disabled={busy} className="btn btn-primary">
             {busy ? 'Updating…' : 'Change Password'}
           </button>
         </form>

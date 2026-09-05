@@ -14,38 +14,39 @@ export default function App() {
   return (
     <AuthProvider>
       <UiProvider>
-      <BrowserRouter>
-        <div style={{
-          fontFamily: "'Plus Jakarta Sans', sans-serif",
-          background: 'var(--bg-gradient)',
-          color: 'var(--text)',
-          minHeight: '100vh',
-          display: 'flex',
-          flexDirection: 'column',
-        }}>
-          <Navbar />
-          <main style={{ flex: 1 }}>
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/quiz" element={<QuizPage />} />
-              <Route path="/leaderboard" element={<LeaderboardPage />} />
-              <Route path="/login" element={<AuthPage mode="login" />} />
-              <Route path="/signup" element={<AuthPage mode="signup" />} />
-              <Route
-                path="/profile"
-                element={
-                  <ProtectedRoute>
-                    <Profile />
-                  </ProtectedRoute>
-                }
-              />
-              {/* Catch-all → dashboard */}
-              <Route path="*" element={<Dashboard />} />
-            </Routes>
-          </main>
-          <Footer />
-        </div>
-      </BrowserRouter>
+        <BrowserRouter>
+          <div
+            style={{
+              background: 'var(--bg-gradient)',
+              color: 'var(--text)',
+              minHeight: '100vh',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <Navbar />
+            <main style={{ flex: 1 }}>
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/quiz" element={<QuizPage />} />
+                <Route path="/leaderboard" element={<LeaderboardPage />} />
+                <Route path="/login" element={<AuthPage mode="login" />} />
+                <Route path="/signup" element={<AuthPage mode="signup" />} />
+                <Route
+                  path="/profile"
+                  element={
+                    <ProtectedRoute>
+                      <Profile />
+                    </ProtectedRoute>
+                  }
+                />
+                {/* Catch-all → dashboard */}
+                <Route path="*" element={<Dashboard />} />
+              </Routes>
+            </main>
+            <Footer />
+          </div>
+        </BrowserRouter>
       </UiProvider>
     </AuthProvider>
   );

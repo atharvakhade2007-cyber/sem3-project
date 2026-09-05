@@ -19,30 +19,55 @@ import {
 
 function Avatar({ user, size = 40 }) {
   return (
-    <div style={{
-      width: size, height: size, borderRadius: '50%', flexShrink: 0,
-      background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: size * 0.55, position: 'relative',
-    }}>
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        flexShrink: 0,
+        background: 'var(--accent-soft)',
+        border: '1px solid var(--card-border-strong)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: size * 0.55,
+        position: 'relative',
+      }}
+    >
       {avatarEmoji(user?.avatar)}
       {user?.online && (
-        <span style={{
-          position: 'absolute', right: 0, bottom: 0, width: 12, height: 12,
-          borderRadius: '50%', background: '#22c55e',
-          border: '2px solid var(--card-bg-solid, #111622)',
-        }} title="Online" />
+        <span
+          style={{
+            position: 'absolute',
+            right: 0,
+            bottom: 0,
+            width: 11,
+            height: 11,
+            borderRadius: '50%',
+            background: 'var(--success)',
+            border: '2px solid var(--card-bg-solid, #141419)',
+          }}
+          title="Online"
+        />
       )}
     </div>
   );
 }
 
-function Chip({ children, color = '#94a3b8' }) {
+function Chip({ children, color = 'var(--text-secondary)' }) {
   return (
-    <span style={{
-      padding: '0.15rem 0.6rem', borderRadius: 20, fontSize: '0.72rem',
-      color, border: `1px solid ${color}44`, background: `${color}18`, flexShrink: 0,
-    }}>
+    <span
+      style={{
+        padding: '0.14rem 0.6rem',
+        borderRadius: 999,
+        fontSize: '0.72rem',
+        fontWeight: 600,
+        color,
+        border: `1px solid ${color}3d`,
+        background: `${color}14`,
+        flexShrink: 0,
+      }}
+    >
       {children}
     </span>
   );
@@ -55,21 +80,32 @@ function fmtTime(sec) {
   return m > 0 ? `${m}m ${s}s` : `${s}s`;
 }
 
-const TIER_COLOR = { easy: '#34d399', medium: '#fbbf24', hard: '#f87171' };
+const TIER_COLOR = { easy: 'var(--tier-easy)', medium: 'var(--tier-medium)', hard: 'var(--tier-hard)' };
 
 function userTier(u) {
   return u?.gk_skill_tier || 'medium';
 }
 
 const btn = (bg, fg = '#fff') => ({
-  padding: '0.45rem 0.9rem', borderRadius: 8, border: 'none',
-  background: bg, color: fg, fontSize: '0.8rem', fontWeight: 700,
-  cursor: 'pointer', whiteSpace: 'nowrap',
+  padding: '0.45rem 0.95rem',
+  borderRadius: 999,
+  border: 'none',
+  background: bg,
+  color: fg,
+  fontSize: '0.8rem',
+  fontWeight: 700,
+  fontFamily: 'inherit',
+  cursor: 'pointer',
+  whiteSpace: 'nowrap',
+  transition: 'transform 0.2s ease, opacity 0.2s ease',
 });
 
 const rowStyle = {
-  display: 'flex', alignItems: 'center', gap: '0.75rem',
-  padding: '0.6rem 0.25rem', borderBottom: '1px solid var(--card-border)',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.75rem',
+  padding: '0.65rem 0.3rem',
+  borderBottom: '1px solid var(--card-border)',
 };
 
 // ─── Duel player (answering screen) ───────────────
@@ -136,33 +172,37 @@ function DuelPlayer({ challenge, onDone }) {
         <div style={{ fontSize: '2.6rem', marginBottom: '0.5rem' }}>
           {won ? '🏆' : drew ? '🤝' : '😞'}
         </div>
-        <h3 style={{ marginBottom: '1rem', fontSize: '1.15rem' }}>{result.verdict_text}</h3>
-        <div style={{
-          display: 'flex', justifyContent: 'center', gap: '2.5rem',
-          marginBottom: '1.25rem',
-        }}>
+        <h3 className="t-title" style={{ marginBottom: '1.1rem', fontSize: '1.15rem' }}>{result.verdict_text}</h3>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            gap: '2.5rem',
+            marginBottom: '1.25rem',
+          }}
+        >
           <div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 800 }}>{result.challenged_score}</div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>You</div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{fmtTime(result.challenged_time_seconds)}</div>
+            <div style={{ fontSize: '1.45rem', fontWeight: 700, letterSpacing: '-0.03em' }}>{result.challenged_score}</div>
+            <div className="t-caption" style={{ fontSize: '0.75rem' }}>You</div>
+            <div className="t-caption" style={{ fontSize: '0.72rem' }}>{fmtTime(result.challenged_time_seconds)}</div>
           </div>
-          <div style={{ fontSize: '1.5rem', color: 'var(--text-secondary)', alignSelf: 'center' }}>vs</div>
+          <div style={{ fontSize: '1.4rem', color: 'var(--text-muted)', alignSelf: 'center' }}>vs</div>
           <div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 800 }}>{result.challenger_score}</div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{challenge.challenger_username}</div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{fmtTime(result.challenger_time_seconds)}</div>
+            <div style={{ fontSize: '1.45rem', fontWeight: 700, letterSpacing: '-0.03em' }}>{result.challenger_score}</div>
+            <div className="t-caption" style={{ fontSize: '0.75rem' }}>{challenge.challenger_username}</div>
+            <div className="t-caption" style={{ fontSize: '0.72rem' }}>{fmtTime(result.challenger_time_seconds)}</div>
           </div>
         </div>
         {result.elo_change != null && result.elo_after != null && (
-          <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '1.1rem' }}>
+          <div className="t-caption" style={{ fontSize: '0.82rem', marginBottom: '1.2rem' }}>
             🎯 Skill rating →{' '}
-            <strong style={{ color: '#fbbf24' }}>{Math.round(result.elo_after)}</strong>{' '}
-            <span style={{ fontWeight: 800, color: result.elo_change >= 0 ? '#34d399' : '#f87171' }}>
+            <strong style={{ color: 'var(--streak)' }}>{Math.round(result.elo_after)}</strong>{' '}
+            <span style={{ fontWeight: 700, color: result.elo_change >= 0 ? 'var(--success)' : 'var(--danger)' }}>
               ({result.elo_change >= 0 ? '+' : ''}{result.elo_change})
             </span>
           </div>
         )}
-        <button onClick={onDone} style={btn('linear-gradient(135deg, #6366f1, #8b5cf6)')}>
+        <button onClick={onDone} className="btn btn-primary">
           Done
         </button>
       </div>
@@ -172,61 +212,88 @@ function DuelPlayer({ challenge, onDone }) {
   if (loading) {
     return (
       <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
-        {meta ? 'Submitting answers…' : 'Loading duel…'}
+        <div className="spinner" style={{ margin: '0 auto 0.9rem' }} />
+        <p className="t-caption">{meta ? 'Submitting answers…' : 'Loading duel…'}</p>
       </div>
     );
   }
   if (error) {
     return (
       <div style={{ textAlign: 'center', padding: '2rem' }}>
-        <p style={{ color: '#f87171', marginBottom: '1rem' }}>{error}</p>
-        <button onClick={onDone} style={btn('var(--card-bg)', 'var(--text)')}>Back</button>
+        <p style={{ color: 'var(--danger)', marginBottom: '1rem' }}>{error}</p>
+        <button onClick={onDone} className="btn btn-secondary">Back</button>
       </div>
     );
   }
 
   return (
     <div>
-      <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
+      <div className="t-caption" style={{ marginBottom: '0.85rem', fontSize: '0.84rem' }}>
         Dueling <strong>{meta.challenger}</strong> on “{meta.document_filename}” · Question {qIndex + 1} of {meta.total_questions}
       </div>
-      <div style={{ height: 5, background: 'rgba(255,255,255,0.1)', borderRadius: 3, marginBottom: '1rem' }}>
-        <div style={{
-          height: '100%', width: `${((qIndex + (selected !== null ? 1 : 0)) / meta.total_questions) * 100}%`,
-          background: 'linear-gradient(90deg, #6366f1, #8b5cf6)', borderRadius: 3,
-        }} />
+      <div className="progress-track" style={{ marginBottom: '1.25rem' }}>
+        <div
+          className="progress-fill"
+          style={{ width: `${((qIndex + (selected !== null ? 1 : 0)) / meta.total_questions) * 100}%` }}
+        />
       </div>
 
-      <div style={{ fontSize: '1.02rem', lineHeight: 1.5, marginBottom: '1rem', fontWeight: 600 }}>
+      <div style={{ fontSize: '1.05rem', lineHeight: 1.55, marginBottom: '1.1rem', fontWeight: 600, letterSpacing: '-0.015em' }}>
         {question?.question_text}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
         {question?.options?.map((opt, i) => {
           const isSel = selected === i;
           return (
-            <button key={i} onClick={() => setSelected(i)} style={{
-              textAlign: 'left', padding: '0.8rem 0.95rem', borderRadius: 10, cursor: 'pointer',
-              fontSize: '0.9rem', width: '100%', color: 'var(--text)',
-              background: isSel ? 'rgba(99,102,241,0.18)' : 'var(--card-bg)',
-              border: `1px solid ${isSel ? '#6366f1' : 'var(--card-border)'}`,
-              display: 'flex', gap: '0.7rem', alignItems: 'center',
-            }}>
-              <span style={{
-                width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
-                background: isSel ? '#6366f1' : 'rgba(255,255,255,0.08)',
-                color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '0.75rem', fontWeight: 700,
-              }}>{keys[i]}</span>
+            <button
+              key={i}
+              onClick={() => setSelected(i)}
+              style={{
+                textAlign: 'left',
+                padding: '0.85rem 1rem',
+                borderRadius: 'var(--radius-sm)',
+                cursor: 'pointer',
+                fontSize: '0.92rem',
+                fontFamily: 'inherit',
+                width: '100%',
+                color: 'var(--text)',
+                background: isSel ? 'var(--accent-soft)' : 'var(--input-bg)',
+                border: `1px solid ${isSel ? 'var(--accent)' : 'var(--card-border)'}`,
+                display: 'flex',
+                gap: '0.7rem',
+                alignItems: 'center',
+                transition: 'background 0.2s, border-color 0.2s',
+              }}
+            >
+              <span
+                style={{
+                  width: 26,
+                  height: 26,
+                  borderRadius: '50%',
+                  flexShrink: 0,
+                  background: isSel ? 'var(--accent)' : 'var(--input-bg)',
+                  border: isSel ? 'none' : '1px solid var(--card-border-strong)',
+                  color: isSel ? 'var(--accent-contrast)' : 'var(--text-secondary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                }}
+              >
+                {keys[i]}
+              </span>
               {opt}
             </button>
           );
         })}
       </div>
       {selected !== null && (
-        <button onClick={recordAnswer} style={{
-          ...btn('linear-gradient(135deg, #6366f1, #8b5cf6)'),
-          width: '100%', padding: '0.8rem', marginTop: '1rem', fontSize: '0.9rem',
-        }}>
+        <button
+          onClick={recordAnswer}
+          className="btn btn-primary rise"
+          style={{ width: '100%', padding: '0.8rem', marginTop: '1.1rem', fontSize: '0.9rem' }}
+        >
           {isLast ? '🏁 Finish Duel' : 'Next →'}
         </button>
       )}
@@ -245,12 +312,12 @@ function DuelCard({ duel, onPlay, onRefresh }) {
   const expired = duel.status === 'pending' && duel.is_expired;
 
   let statusChip = null;
-  if (expired) statusChip = <Chip color="#f87171">⏰ Expired</Chip>;
-  else if (duel.status === 'pending') statusChip = incoming ? <Chip color="#fbbf24">Waiting for you</Chip> : <Chip color="#94a3b8">Awaiting reply…</Chip>;
+  if (expired) statusChip = <Chip color="var(--danger)">⏰ Expired</Chip>;
+  else if (duel.status === 'pending') statusChip = incoming ? <Chip color="var(--streak)">Waiting for you</Chip> : <Chip>Awaiting reply…</Chip>;
   else if (duel.status === 'completed') {
     const mine = user?.username === duel.winner_username;
     const drew = !duel.winner_username;
-    statusChip = <Chip color={drew ? '#94a3b8' : mine ? '#34d399' : '#f87171'}>
+    statusChip = <Chip color={drew ? 'var(--text-secondary)' : mine ? 'var(--success)' : 'var(--danger)'}>
       {drew ? '🤝 Draw' : mine ? '🏆 You won' : `🏆 ${duel.winner_username} won`}
     </Chip>;
   }
@@ -259,10 +326,10 @@ function DuelCard({ duel, onPlay, onRefresh }) {
     <div style={rowStyle}>
       <Avatar user={{ avatar: opponentAvatar }} size={36} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 700, fontSize: '0.88rem' }}>
+        <div style={{ fontWeight: 650, fontSize: '0.88rem' }}>
           {incoming ? `${opponent} challenged you` : `You challenged ${opponent}`}
         </div>
-        <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
+        <div className="t-caption" style={{ fontSize: '0.74rem' }}>
           {duel.document_filename} · {duel.question_count} questions
           {duel.status === 'completed' && (
             <span> · {Math.max(duel.challenger_score ?? 0, duel.challenged_score ?? 0)}/{duel.question_count}</span>
@@ -271,7 +338,7 @@ function DuelCard({ duel, onPlay, onRefresh }) {
       </div>
       {statusChip}
       {canPlay && (
-        <button onClick={() => onPlay(duel)} style={btn('linear-gradient(135deg, #6366f1, #8b5cf6)')}>
+        <button onClick={() => onPlay(duel)} style={btn('var(--accent)', 'var(--accent-contrast)')}>
           ⚔️ Play
         </button>
       )}
@@ -367,62 +434,118 @@ export default function SocialHub() {
   if (!socialOpen || !me) return null;
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 200,
-      background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: '1rem',
-    }} onClick={closeSocial}>
-      <div onClick={e => e.stopPropagation()} style={{
-        width: 'min(560px, 100%)', maxHeight: '82vh', overflow: 'hidden',
-        background: 'var(--card-bg-solid, #111622)', border: '1px solid var(--card-border)',
-        borderRadius: 20, boxShadow: '0 30px 80px rgba(0,0,0,0.5)',
-        display: 'flex', flexDirection: 'column',
-      }}>
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 200,
+        background: 'rgba(0,0,0,0.45)',
+        backdropFilter: 'blur(8px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '1rem',
+      }}
+      onClick={closeSocial}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        className="card rise"
+        style={{
+          width: 'min(560px, 100%)',
+          maxHeight: '82vh',
+          overflow: 'hidden',
+          borderRadius: 'var(--radius-xl)',
+          boxShadow: 'var(--shadow-raised)',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
         {/* Header */}
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '1rem 1.25rem', borderBottom: '1px solid var(--card-border)',
-        }}>
-          <h2 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0 }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '1.1rem 1.4rem',
+            borderBottom: '1px solid var(--card-border)',
+          }}
+        >
+          <h2 className="t-title" style={{ margin: 0, fontSize: '1.08rem' }}>
             {activeDuel ? '⚔️ Duel' : '🤝 Friends & Duels'}
           </h2>
-          <button onClick={closeSocial} style={{
-            background: 'none', border: 'none', color: 'var(--text-secondary)',
-            fontSize: '1.3rem', cursor: 'pointer', lineHeight: 1, padding: '0.2rem 0.5rem',
-          }}>✕</button>
+          <button
+            onClick={closeSocial}
+            style={{
+              background: 'var(--input-bg)',
+              border: 'none',
+              color: 'var(--text-secondary)',
+              fontSize: '0.9rem',
+              cursor: 'pointer',
+              lineHeight: 1,
+              padding: '0.4rem 0.6rem',
+              borderRadius: '50%',
+            }}
+          >
+            ✕
+          </button>
         </div>
 
         {/* Active duel player replaces the whole body */}
         {activeDuel ? (
-          <div style={{ padding: '1.25rem', overflowY: 'auto' }}>
+          <div style={{ padding: '1.4rem', overflowY: 'auto' }}>
             <DuelPlayer challenge={activeDuel} onDone={afterDuel} />
           </div>
         ) : (
           <>
             {/* Tabs */}
-            <div style={{ display: 'flex', gap: '0.35rem', padding: '0.75rem 1.25rem 0', overflowX: 'auto' }}>
+            <div style={{ display: 'flex', gap: '0.3rem', padding: '0.9rem 1.4rem 0', overflowX: 'auto' }}>
               {TABS.map(t => (
-                <button key={t.key} onClick={() => setSocialTab(t.key)} style={{
-                  background: socialTab === t.key ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : 'transparent',
-                  border: 'none', borderRadius: '10px 10px 0 0', padding: '0.55rem 0.95rem',
-                  fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer',
-                  color: socialTab === t.key ? '#fff' : 'var(--text-secondary)',
-                  borderBottom: socialTab === t.key ? 'none' : '2px solid transparent',
-                  whiteSpace: 'nowrap',
-                }}>
+                <button
+                  key={t.key}
+                  onClick={() => setSocialTab(t.key)}
+                  style={{
+                    background: socialTab === t.key ? 'var(--accent-soft)' : 'transparent',
+                    border: 'none',
+                    borderRadius: 999,
+                    padding: '0.5rem 0.95rem',
+                    fontSize: '0.82rem',
+                    fontWeight: 650,
+                    fontFamily: 'inherit',
+                    cursor: 'pointer',
+                    color: socialTab === t.key ? 'var(--accent)' : 'var(--text-secondary)',
+                    whiteSpace: 'nowrap',
+                    transition: 'background 0.2s, color 0.2s',
+                  }}
+                >
                   {t.label}
                   {t.key === 'requests' && requests.incoming.length > 0 && (
-                    <span style={{
-                      marginLeft: 5, background: '#ef4444', color: '#fff', borderRadius: 10,
-                      padding: '0.05rem 0.4rem', fontSize: '0.68rem',
-                    }}>{requests.incoming.length}</span>
+                    <span
+                      style={{
+                        marginLeft: 5,
+                        background: 'var(--danger)',
+                        color: 'var(--accent-contrast)',
+                        borderRadius: 999,
+                        padding: '0.05rem 0.4rem',
+                        fontSize: '0.66rem',
+                      }}
+                    >
+                      {requests.incoming.length}
+                    </span>
                   )}
                   {t.key === 'duels' && duels.incoming.filter(d => d.status === 'pending' && !d.is_expired).length > 0 && (
-                    <span style={{
-                      marginLeft: 5, background: '#f59e0b', color: '#fff', borderRadius: 10,
-                      padding: '0.05rem 0.4rem', fontSize: '0.68rem',
-                    }}>{duels.incoming.filter(d => d.status === 'pending' && !d.is_expired).length}</span>
+                    <span
+                      style={{
+                        marginLeft: 5,
+                        background: 'var(--streak)',
+                        color: 'var(--accent-contrast)',
+                        borderRadius: 999,
+                        padding: '0.05rem 0.4rem',
+                        fontSize: '0.66rem',
+                      }}
+                    >
+                      {duels.incoming.filter(d => d.status === 'pending' && !d.is_expired).length}
+                    </span>
                   )}
                 </button>
               ))}
@@ -430,21 +553,26 @@ export default function SocialHub() {
 
             {/* Notice */}
             {notice && (
-              <div style={{
-                margin: '0.6rem 1.25rem 0', padding: '0.5rem 0.75rem', borderRadius: 8,
-                fontSize: '0.8rem', background: 'rgba(99,102,241,0.15)',
-                border: '1px solid rgba(99,102,241,0.3)', color: '#a5b4fc',
-              }}>
+              <div
+                style={{
+                  margin: '0.7rem 1.4rem 0',
+                  padding: '0.55rem 0.85rem',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.8rem',                      background: 'var(--accent-soft)',
+                      border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)',
+                      color: 'var(--accent)',
+                }}
+              >
                 {notice}
               </div>
             )}
 
             {/* Body */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '0.75rem 1.25rem 1.25rem' }}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '0.9rem 1.4rem 1.4rem' }}>
 
               {socialTab === 'friends' && (
                 <div>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+                  <p className="t-caption" style={{ marginBottom: '0.5rem', fontSize: '0.8rem' }}>
                     {friends.length === 0
                       ? 'No friends yet — use Find Users to send your first request.'
                       : `${friends.length} friend${friends.length === 1 ? '' : 's'}`}
@@ -455,29 +583,33 @@ export default function SocialHub() {
                       <div key={f.id} style={rowStyle}>
                         <Avatar user={u} />
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 700, fontSize: '0.88rem' }}>
+                          <div style={{ fontWeight: 650, fontSize: '0.88rem' }}>
                             {avatarEmoji(u.avatar)} {u.username}
                           </div>
-                          <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginTop: '0.2rem' }}>
+                          <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
                             <Chip color={TIER_COLOR[userTier(u)]}>{TIER_LABELS[userTier(u)] || 'Intermediate'}</Chip>
-                            <Chip color="#fdba74">🔥 {u.current_streak}</Chip>
+                            <Chip color="var(--streak)">🔥 {u.current_streak}</Chip>
                           </div>
                         </div>
                         <button
                           disabled={busy}
                           onClick={() => openChallengeWithFriend(u)}
                           title={`Challenge ${u.username} to a duel`}
-                          style={btn('linear-gradient(135deg, #f59e0b, #ef4444)')}
-                        >⚔️ Duel</button>
+                          style={btn('var(--accent)', 'var(--accent-contrast)')}
+                        >
+                          ⚔️ Duel
+                        </button>
                         <button
                           disabled={busy}
                           onClick={() => act(
                             () => manageFriend(u.user_id, 'remove'),
                             `${u.username} removed from friends.`
                           )}
-                          style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.9rem' }}
+                          style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.9rem' }}
                           title="Remove friend"
-                        >🗑️</button>
+                        >
+                          🗑️
+                        </button>
                       </div>
                     );
                   })}
@@ -487,7 +619,7 @@ export default function SocialHub() {
               {socialTab === 'requests' && (
                 <div>
                   {requests.incoming.length === 0 && requests.outgoing.length === 0 && (
-                    <p style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '2rem 0', fontSize: '0.85rem' }}>
+                    <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem 0', fontSize: '0.85rem' }}>
                       📭 No pending requests.
                     </p>
                   )}
@@ -495,22 +627,33 @@ export default function SocialHub() {
                     <div key={r.id} style={rowStyle}>
                       <Avatar user={r.friend} />
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 700, fontSize: '0.88rem' }}>
+                        <div style={{ fontWeight: 650, fontSize: '0.88rem' }}>
                           {avatarEmoji(r.friend.avatar)} {r.friend.username}
                         </div>
-                        <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                        <div className="t-caption" style={{ fontSize: '0.72rem' }}>
                           wants to be your friend
                         </div>
                       </div>
-                      <button disabled={busy} onClick={() => respond(r.id, 'accept', `You and ${r.friend.username} are friends! 🎉`)}
-                        style={btn('linear-gradient(135deg, #10b981, #22c55e)')}>Accept</button>
-                      <button disabled={busy} onClick={() => respond(r.id, 'decline')}
-                        style={{ background: 'none', border: '1px solid var(--card-border)', borderRadius: 8, padding: '0.45rem 0.9rem', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>Decline</button>
+                      <button
+                        disabled={busy}
+                        onClick={() => respond(r.id, 'accept', `You and ${r.friend.username} are friends! 🎉`)}
+                        style={btn('var(--success)')}
+                      >
+                        Accept
+                      </button>
+                      <button
+                        disabled={busy}
+                        onClick={() => respond(r.id, 'decline')}
+                        className="btn btn-secondary"
+                        style={{ padding: '0.45rem 0.9rem', fontSize: '0.8rem' }}
+                      >
+                        Decline
+                      </button>
                     </div>
                   ))}
                   {requests.outgoing.length > 0 && (
                     <div style={{ marginTop: '0.5rem' }}>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.5rem 0 0.25rem' }}>
+                      <div className="t-eyebrow" style={{ margin: '0.5rem 0 0.25rem', fontSize: '0.7rem' }}>
                         Outgoing
                       </div>
                       {requests.outgoing.map(r => (
@@ -519,9 +662,12 @@ export default function SocialHub() {
                           <div style={{ flex: 1, fontWeight: 600, fontSize: '0.88rem' }}>
                             {avatarEmoji(r.friend.avatar)} {r.friend.username}
                           </div>
-                          <Chip color="#94a3b8">Pending</Chip>
-                          <button disabled={busy} onClick={() => act(() => cancelFriendRequest(r.id), 'Request cancelled.')}
-                            style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '0.8rem', textDecoration: 'underline' }}>
+                          <Chip>Pending</Chip>
+                          <button
+                            disabled={busy}
+                            onClick={() => act(() => cancelFriendRequest(r.id), 'Request cancelled.')}
+                            style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: '0.8rem', textDecoration: 'underline', fontFamily: 'inherit' }}
+                          >
                             Cancel
                           </button>
                         </div>
@@ -538,16 +684,12 @@ export default function SocialHub() {
                     onChange={e => setQuery(e.target.value)}
                     placeholder="Search by username or email…"
                     autoFocus
-                    style={{
-                      width: '100%', boxSizing: 'border-box', padding: '0.7rem 0.9rem',
-                      borderRadius: 10, border: '1px solid var(--card-border)',
-                      background: 'var(--card-bg)', color: 'var(--text)',
-                      fontSize: '0.9rem', outline: 'none', marginBottom: '0.75rem',
-                    }}
+                    className="input"
+                    style={{ marginBottom: '0.85rem' }}
                   />
-                  {searching && <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', textAlign: 'center', padding: '1rem' }}>Searching…</p>}
+                  {searching && <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center', padding: '1rem' }}>Searching…</p>}
                   {!searching && query.trim() && results.length === 0 && (
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', textAlign: 'center', padding: '1.5rem 0' }}>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', textAlign: 'center', padding: '1.5rem 0' }}>
                       No users found.
                     </p>
                   )}
@@ -555,21 +697,20 @@ export default function SocialHub() {
                     <div key={u.user_id} style={rowStyle}>
                       <Avatar user={u} />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 700, fontSize: '0.88rem' }}>
+                        <div style={{ fontWeight: 650, fontSize: '0.88rem' }}>
                           {avatarEmoji(u.avatar)} {u.username}
                         </div>
-                        <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                        <div className="t-caption" style={{ fontSize: '0.72rem' }}>
                           {u.username === me.username ? '(you)' : `${TIER_LABELS[userTier(u)] || 'Intermediate'} · 🔥 ${u.current_streak}`}
                         </div>
                       </div>
-                      <button disabled={busy} onClick={() => addFriend(u)}
-                        style={btn('linear-gradient(135deg, #6366f1, #8b5cf6)')}>
+                      <button disabled={busy} onClick={() => addFriend(u)} style={btn('var(--accent)')}>
                         + Add Friend
                       </button>
                     </div>
                   ))}
                   {!query.trim() && (
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', textAlign: 'center', padding: '2rem 0' }}>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', textAlign: 'center', padding: '2rem 0' }}>
                       🔎 Start typing to find users.
                     </p>
                   )}
@@ -590,10 +731,10 @@ export default function SocialHub() {
                     if (playable.length === 0 && pendingOut.length === 0 && past.length === 0) {
                       return (
                         <div style={{ textAlign: 'center', padding: '1.5rem 0' }}>
-                          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1rem' }}>
+                          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1rem' }}>
                             No duels yet. Challenge a friend from the Friends tab!
                           </p>
-                          <button onClick={() => setSocialTab('friends')} style={btn('linear-gradient(135deg, #6366f1, #8b5cf6)')}>
+                          <button onClick={() => setSocialTab('friends')} className="btn btn-primary">
                             👥 Pick a friend
                           </button>
                         </div>
@@ -602,16 +743,16 @@ export default function SocialHub() {
                     return (
                       <>
                         {playable.length > 0 && (
-                          <div style={{ marginBottom: '0.75rem' }}>
-                            <div style={{ fontSize: '0.72rem', color: '#fbbf24', marginBottom: '0.25rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          <div style={{ marginBottom: '0.85rem' }}>
+                            <div className="t-eyebrow" style={{ marginBottom: '0.3rem', fontSize: '0.7rem', color: 'var(--streak)' }}>
                               ⏳ Waiting on you
                             </div>
                             {playable.map(d => <DuelCard key={d.id} duel={d} onPlay={setActiveDuel} />)}
                           </div>
                         )}
                         {pendingOut.length > 0 && (
-                          <div style={{ marginBottom: '0.75rem' }}>
-                            <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginBottom: '0.25rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          <div style={{ marginBottom: '0.85rem' }}>
+                            <div className="t-eyebrow" style={{ marginBottom: '0.3rem', fontSize: '0.7rem' }}>
                               Sent
                             </div>
                             {pendingOut.map(d => <DuelCard key={d.id} duel={d} />)}
@@ -619,7 +760,7 @@ export default function SocialHub() {
                         )}
                         {past.length > 0 && (
                           <div>
-                            <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginBottom: '0.25rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                            <div className="t-eyebrow" style={{ marginBottom: '0.3rem', fontSize: '0.7rem' }}>
                               History
                             </div>
                             {past.map(d => <DuelCard key={d.id} duel={d} />)}

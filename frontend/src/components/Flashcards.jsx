@@ -52,21 +52,16 @@ export default function Flashcards({ documentId }) {
 
   if (loading) {
     return (
-      <div style={{ textAlign: 'center', padding: '4rem', color: '#94a3b8' }}>
-        <div style={{
-          display: 'inline-block', width: 40, height: 40,
-          border: '4px solid rgba(255,255,255,0.15)', borderRadius: '50%',
-          borderTopColor: '#6366f1', animation: 'spin 0.8s linear infinite',
-          marginBottom: '1rem',
-        }} />
-        <p>Generating flashcards...</p>
+      <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-secondary)' }}>
+        <div className="spinner" style={{ margin: '0 auto 1rem' }} />
+        <p className="t-body">Generating flashcards...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div style={{ textAlign: 'center', padding: '4rem', color: '#ef4444' }}>
+      <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--danger)' }}>
         <p>Error: {error}</p>
       </div>
     );
@@ -74,7 +69,7 @@ export default function Flashcards({ documentId }) {
 
   if (cards.length === 0) {
     return (
-      <div style={{ textAlign: 'center', padding: '4rem', color: '#94a3b8' }}>
+      <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-secondary)' }}>
         <p>No flashcards generated.</p>
       </div>
     );
@@ -86,71 +81,96 @@ export default function Flashcards({ documentId }) {
   return (
     <div>
       <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
-        <p style={{ color: '#94a3b8', fontSize: '0.85rem', marginTop: '0.25rem' }}>
-          <kbd style={kbdStyle}>←</kbd> <kbd style={kbdStyle}>→</kbd> navigate |
-          <kbd style={kbdStyle}>Space</kbd> flip
+        <p className="t-caption" style={{ fontSize: '0.8rem' }}>
+          <kbd className="kbd">←</kbd> <kbd className="kbd">→</kbd> navigate ·{' '}
+          <kbd className="kbd">Space</kbd> flip
         </p>
       </div>
 
       {/* Progress bar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
-        <div style={{ flex: 1, height: 6, background: 'rgba(255,255,255,0.1)', borderRadius: 3, overflow: 'hidden' }}>
-          <div style={{
-            height: '100%', background: 'linear-gradient(90deg, #6366f1, #8b5cf6)',
-            borderRadius: 3, width: `${progress}%`, transition: 'width 0.3s',
-          }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
+        <div className="progress-track" style={{ flex: 1 }}>
+          <div className="progress-fill" style={{ width: `${progress}%` }} />
         </div>
-        <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>{currentIndex + 1} / {cards.length}</span>
+        <span className="t-caption" style={{ fontSize: '0.85rem', fontVariantNumeric: 'tabular-nums' }}>
+          {currentIndex + 1} / {cards.length}
+        </span>
       </div>
 
       {/* Card with flip */}
       <div
         onClick={flipCard}
         style={{
-          perspective: 1200, width: '100%', maxWidth: 700, margin: '0 auto', cursor: 'pointer',
+          perspective: 1200,
+          width: '100%',
+          maxWidth: 700,
+          margin: '0 auto',
+          cursor: 'pointer',
         }}
       >
-        <div style={{
-          width: '100%', minHeight: 350, position: 'relative',
-          transition: 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
-          transformStyle: 'preserve-3d',
-          transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
-        }}>
+        <div
+          style={{
+            width: '100%',
+            minHeight: 350,
+            position: 'relative',
+            transition: 'transform 0.6s cubic-bezier(0.22, 1, 0.36, 1)',
+            transformStyle: 'preserve-3d',
+            transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+          }}
+        >
           {/* Front */}
-          <div style={{
-            position: 'absolute', inset: 0, backfaceVisibility: 'hidden',
-            borderRadius: 16, background: 'rgba(30,41,59,0.7)', border: '1px solid rgba(255,255,255,0.1)',
-            padding: '2.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center',
-            justifyContent: 'center', textAlign: 'center',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
-          }}>
-            <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#94a3b8', marginBottom: '1rem' }}>
+          <div
+            className="card"
+            style={{
+              position: 'absolute',
+              inset: 0,
+              backfaceVisibility: 'hidden',
+              borderRadius: 'var(--radius-xl)',
+              padding: '2.5rem',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              textAlign: 'center',
+              boxShadow: 'var(--shadow-raised)',
+            }}
+          >
+            <div className="t-eyebrow" style={{ marginBottom: '1.1rem' }}>
               Question
             </div>
-            <div style={{ fontSize: '1.2rem', lineHeight: 1.6, fontWeight: 500 }}>
+            <div style={{ fontSize: '1.25rem', lineHeight: 1.6, fontWeight: 550, letterSpacing: '-0.015em', maxWidth: 520 }}>
               {card.front}
             </div>
-            <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '1.5rem' }}>
+            <div className="t-caption" style={{ fontSize: '0.8rem', marginTop: '1.5rem', color: 'var(--text-muted)' }}>
               Click or press Space to reveal answer
             </div>
           </div>
 
           {/* Back */}
-          <div style={{
-            position: 'absolute', inset: 0, backfaceVisibility: 'hidden',
-            transform: 'rotateY(180deg)',
-            borderRadius: 16, background: 'rgba(30,41,59,0.7)', border: '1px solid rgba(255,255,255,0.1)',
-            padding: '2.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center',
-            justifyContent: 'center', textAlign: 'center',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
-          }}>
-            <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#94a3b8', marginBottom: '1rem' }}>
+          <div
+            className="card wash-green"
+            style={{
+              position: 'absolute',
+              inset: 0,
+              backfaceVisibility: 'hidden',
+              transform: 'rotateY(180deg)',
+              borderRadius: 'var(--radius-xl)',
+              padding: '2.5rem',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              textAlign: 'center',
+              boxShadow: 'var(--shadow-raised)',
+            }}
+          >
+            <div className="t-eyebrow" style={{ marginBottom: '1.1rem' }}>
               Answer
             </div>
-            <div style={{ fontSize: '1.2rem', lineHeight: 1.6, fontWeight: 500, color: '#10b981' }}>
+            <div style={{ fontSize: '1.25rem', lineHeight: 1.6, fontWeight: 550, letterSpacing: '-0.015em', color: 'var(--success)', maxWidth: 520 }}>
               {card.back}
             </div>
-            <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '1.5rem' }}>
+            <div className="t-caption" style={{ fontSize: '0.8rem', marginTop: '1.5rem', color: 'var(--text-muted)' }}>
               Click or press Space to see question
             </div>
           </div>
@@ -158,30 +178,43 @@ export default function Flashcards({ documentId }) {
       </div>
 
       {/* Controls */}
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '1.5rem', marginTop: '2rem' }}>
-        <button onClick={prevCard} disabled={currentIndex === 0} style={ctrlBtnStyle}>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '1.5rem', marginTop: '2.25rem' }}>
+        <button
+          onClick={prevCard}
+          disabled={currentIndex === 0}
+          className="btn btn-secondary"
+          style={{
+            width: 50,
+            height: 50,
+            borderRadius: '50%',
+            padding: 0,
+            opacity: currentIndex === 0 ? 0.35 : 1,
+            cursor: currentIndex === 0 ? 'not-allowed' : 'pointer',
+            fontSize: '1.05rem',
+          }}
+        >
           ←
         </button>
-        <button onClick={flipCard} style={{ ...ctrlBtnStyle, width: 'auto', padding: '0 1.5rem', borderRadius: 10, fontWeight: 600, fontSize: '0.9rem', background: '#6366f1', border: 'none' }}>
+        <button onClick={flipCard} className="btn btn-primary" style={{ padding: '0.65rem 1.6rem' }}>
           Flip Card
         </button>
-        <button onClick={nextCard} disabled={currentIndex === cards.length - 1} style={ctrlBtnStyle}>
+        <button
+          onClick={nextCard}
+          disabled={currentIndex === cards.length - 1}
+          className="btn btn-secondary"
+          style={{
+            width: 50,
+            height: 50,
+            borderRadius: '50%',
+            padding: 0,
+            opacity: currentIndex === cards.length - 1 ? 0.35 : 1,
+            cursor: currentIndex === cards.length - 1 ? 'not-allowed' : 'pointer',
+            fontSize: '1.05rem',
+          }}
+        >
           →
         </button>
       </div>
     </div>
   );
 }
-
-const kbdStyle = {
-  display: 'inline-block', padding: '0.15rem 0.5rem',
-  background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
-  borderRadius: 4, fontSize: '0.75rem', fontFamily: 'monospace', color: '#94a3b8',
-};
-
-const ctrlBtnStyle = {
-  width: 50, height: 50, borderRadius: '50%',
-  border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)',
-  color: '#f8fafc', fontSize: '1.1rem', cursor: 'pointer',
-  display: 'flex', alignItems: 'center', justifyContent: 'center',
-};

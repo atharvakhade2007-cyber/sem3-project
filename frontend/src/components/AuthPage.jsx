@@ -3,27 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { requestPasswordReset } from '../api';
 
-// ─── Shared input styles ──────────────────────────
-
-const inputStyle = {
-  width: '100%',
-  padding: '0.75rem 1rem',
-  borderRadius: 10,
-  border: '1px solid var(--input-border)',
-  background: 'var(--input-bg)',
-  color: 'var(--text)',
-  fontSize: '0.95rem',
-  outline: 'none',
-};
-
-const labelStyle = {
-  display: 'block',
-  fontSize: '0.82rem',
-  fontWeight: 600,
-  color: 'var(--text-secondary)',
-  marginBottom: '0.35rem',
-};
-
 // ─── Password strength meter ──────────────────────
 
 function PasswordStrengthMeter({ password }) {
@@ -33,29 +12,34 @@ function PasswordStrengthMeter({ password }) {
     { label: 'Contains a symbol', ok: /[^A-Za-z0-9]/.test(password) },
   ];
   const score = checks.filter(c => c.ok).length;
-  const color = ['#64748b', '#ef4444', '#f59e0b', '#10b981'][score];
+  const color = ['var(--text-muted)', 'var(--danger)', 'var(--streak)', 'var(--success)'][score];
   const label = ['', 'Weak', 'Fair', 'Strong'][score];
 
   return (
     <div style={{ marginTop: '0.5rem' }}>
       <div style={{ display: 'flex', gap: '0.35rem' }}>
         {checks.map((c, i) => (
-          <div key={i} style={{
-            flex: 1,
-            height: 4,
-            borderRadius: 2,
-            background: c.ok ? color : 'var(--card-border)',
-            transition: 'background 0.2s',
-          }} />
+          <div
+            key={i}
+            style={{
+              flex: 1,
+              height: 4,
+              borderRadius: 2,
+              background: c.ok ? color : 'var(--input-bg)',
+              transition: 'background 0.25s',
+            }}
+          />
         ))}
       </div>
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        marginTop: '0.35rem',
-        fontSize: '0.72rem',
-        color: 'var(--text-muted)',
-      }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          marginTop: '0.4rem',
+          fontSize: '0.72rem',
+          color: 'var(--text-muted)',
+        }}
+      >
         <span>
           {checks.map((c, i) => (
             <span key={i} style={{ marginRight: '0.75rem' }}>
@@ -74,7 +58,7 @@ function PasswordStrengthMeter({ password }) {
 function FieldError({ message }) {
   if (!message) return null;
   return (
-    <div style={{ color: '#f87171', fontSize: '0.78rem', marginTop: '0.3rem' }}>
+    <div style={{ color: 'var(--danger)', fontSize: '0.78rem', marginTop: '0.3rem' }}>
       {message}
     </div>
   );
@@ -106,92 +90,112 @@ function ForgotPasswordModal({ onClose }) {
   };
 
   return (
-    <div onClick={onClose} style={{
-      position: 'fixed', inset: 0, zIndex: 200,
-      background: 'rgba(0,0,0,0.6)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: '1rem',
-    }}>
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 200,
+        background: 'rgba(0,0,0,0.5)',
+        backdropFilter: 'blur(6px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '1rem',
+      }}
+    >
       <div
         onClick={e => e.stopPropagation()}
+        className="card rise"
         style={{
-          background: 'var(--card-bg-solid)',
-          border: '1px solid var(--card-border)',
-          borderRadius: 16,
-          padding: '1.5rem',
           width: '100%',
           maxWidth: 400,
-          boxShadow: 'var(--shadow)',
+          borderRadius: 'var(--radius-xl)',
+          boxShadow: 'var(--shadow-raised)',
+          padding: '1.75rem',
         }}
       >
-        <div style={{
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          marginBottom: '1rem',
-        }}>
-          <h3 style={{ fontSize: '1.05rem' }}>🔑 Reset Password</h3>
-          <button onClick={onClose} style={{
-            background: 'none', border: 'none', color: 'var(--text-secondary)',
-            fontSize: '1.2rem', cursor: 'pointer', lineHeight: 1,
-          }}>✕</button>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '1.25rem',
+          }}
+        >
+          <h3 className="t-title">🔑 Reset Password</h3>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-secondary)',
+              fontSize: '1.15rem',
+              cursor: 'pointer',
+              lineHeight: 1,
+            }}
+          >
+            ✕
+          </button>
         </div>
 
         {status?.type === 'success' ? (
           <div>
-            <div style={{
-              background: 'rgba(16,185,129,0.1)',
-              border: '1px solid rgba(16,185,129,0.3)',
-              color: '#34d399', borderRadius: 10, padding: '0.75rem 1rem',
-              fontSize: '0.85rem', marginBottom: '1rem',
-            }}>
+            <div
+              style={{
+                background: 'color-mix(in srgb, var(--success) 10%, transparent)',
+                border: '1px solid color-mix(in srgb, var(--success) 30%, transparent)',
+                color: 'var(--success)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '0.75rem 1rem',
+                fontSize: '0.85rem',
+                marginBottom: '1rem',
+              }}
+            >
               {status.text}
             </div>
             {status.devReset && (
-              <div style={{
-                background: 'rgba(99,102,241,0.08)',
-                border: '1px dashed rgba(99,102,241,0.4)',
-                borderRadius: 10, padding: '0.75rem 1rem',
-                fontSize: '0.75rem', color: 'var(--text-secondary)',
-                marginBottom: '1rem',
-                fontFamily: 'monospace',
-                wordBreak: 'break-all',
-              }}>
-                DEV ONLY — reset token:<br />
-                uid: {status.devReset.uid}<br />
+              <div
+                style={{
+                  background: 'var(--accent-soft)',
+                  border: '1px dashed color-mix(in srgb, var(--accent) 40%, transparent)',
+                  borderRadius: 'var(--radius-sm)',
+                  padding: '0.75rem 1rem',
+                  fontSize: '0.75rem',
+                  color: 'var(--text-secondary)',
+                  marginBottom: '1rem',
+                  fontFamily: 'ui-monospace, monospace',
+                  wordBreak: 'break-all',
+                }}
+              >
+                DEV ONLY — reset token:
+                <br />
+                uid: {status.devReset.uid}
+                <br />
                 token: {status.devReset.token}
               </div>
             )}
-            <button onClick={onClose} style={{
-              width: '100%', padding: '0.7rem', borderRadius: 10,
-              border: 'none', cursor: 'pointer', fontWeight: 700,
-              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff',
-            }}>
+            <button onClick={onClose} className="btn btn-primary" style={{ width: '100%' }}>
               Done
             </button>
           </div>
         ) : (
           <form onSubmit={submit}>
-            <label style={labelStyle}>Email address</label>
+            <label className="label">Email address</label>
             <input
               type="email"
               required
               value={email}
               onChange={e => setEmail(e.target.value)}
               placeholder="you@example.com"
-              style={inputStyle}
+              className="input"
             />
-            {status?.type === 'error' && (
-              <FieldError message={status.text} />
-            )}
+            {status?.type === 'error' && <FieldError message={status.text} />}
             <button
               type="submit"
               disabled={busy}
-              style={{
-                width: '100%', marginTop: '1rem', padding: '0.7rem',
-                borderRadius: 10, border: 'none', cursor: 'pointer',
-                fontWeight: 700, fontSize: '0.9rem',
-                background: busy ? 'var(--card-border)' : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                color: busy ? 'var(--text-muted)' : '#fff',
-              }}
+              className="btn btn-primary"
+              style={{ width: '100%', marginTop: '1.1rem' }}
             >
               {busy ? 'Sending…' : 'Send Reset Link'}
             </button>
@@ -291,81 +295,74 @@ export default function AuthPage({ mode = 'login' }) {
   };
 
   return (
-    <div style={{
-      minHeight: 'calc(100vh - 140px)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: '2rem 1rem',
-    }}>
-      <div style={{
-        width: '100%',
-        maxWidth: 440,
-        background: 'var(--card-bg-solid)',
-        border: '1px solid var(--card-border)',
-        borderRadius: 20,
-        boxShadow: 'var(--shadow)',
-        padding: '2rem',
-      }}>
+    <div
+      style={{
+        minHeight: 'calc(100vh - 140px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '3rem 1rem',
+      }}
+    >
+      <div
+        className="card rise"
+        style={{
+          width: '100%',
+          maxWidth: 430,
+          borderRadius: 'var(--radius-xl)',
+          boxShadow: 'var(--shadow-raised)',
+          padding: '2.25rem',
+        }}
+      >
         {/* Brand */}
-        <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-          <div style={{ fontSize: '2.2rem' }}>🧠</div>
-          <h1 style={{ fontSize: '1.4rem', fontWeight: 800, marginTop: '0.25rem' }}>
-            StudyMind AI
+        <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
+          <div
+            className="icon-tile"
+            style={{ width: 56, height: 56, margin: '0 auto 1rem', fontSize: '1.5rem' }}
+          >
+            🧠
+          </div>
+          <h1 className="t-headline" style={{ fontSize: '1.45rem' }}>
+            {tab === 'login' ? 'Welcome back' : 'Create your account'}
           </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '0.25rem' }}>
-            {tab === 'login' ? 'Welcome back — pick up where you left off.' : 'Create your account and start learning smarter.'}
+          <p className="t-caption" style={{ marginTop: '0.45rem' }}>
+            {tab === 'login'
+              ? 'Pick up right where you left off.'
+              : 'Start learning smarter in under a minute.'}
           </p>
         </div>
 
-        {/* Tabs */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          background: 'var(--input-bg)',
-          border: '1px solid var(--input-border)',
-          borderRadius: 12,
-          padding: '0.25rem',
-          marginBottom: '1.5rem',
-        }}>
-          {[
-            { key: 'login', label: 'Sign In' },
-            { key: 'signup', label: 'Sign Up' },
-          ].map(t => {
-            const active = tab === t.key;
-            return (
+        {/* Segmented tab switch */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.75rem' }}>
+          <div className="segmented">
+            {[
+              { key: 'login', label: 'Sign In' },
+              { key: 'signup', label: 'Sign Up' },
+            ].map(t => (
               <button
                 key={t.key}
                 onClick={() => switchTab(t.key)}
-                style={{
-                  padding: '0.6rem',
-                  borderRadius: 9,
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontWeight: 700,
-                  fontSize: '0.9rem',
-                  color: active ? '#fff' : 'var(--text-secondary)',
-                  background: active
-                    ? 'linear-gradient(135deg, #6366f1, #8b5cf6)'
-                    : 'transparent',
-                  transition: 'all 0.15s',
-                }}
+                className={tab === t.key ? 'active' : ''}
               >
                 {t.label}
               </button>
-            );
-          })}
+            ))}
+          </div>
         </div>
 
         {/* Server-level error */}
         {formError && (
-          <div style={{
-            background: 'rgba(239,68,68,0.1)',
-            border: '1px solid rgba(239,68,68,0.35)',
-            color: '#fca5a5',
-            borderRadius: 10,
-            padding: '0.7rem 1rem',
-            fontSize: '0.85rem',
-            marginBottom: '1rem',
-          }}>
+          <div
+            style={{
+              background: 'color-mix(in srgb, var(--danger) 10%, transparent)',
+              border: '1px solid color-mix(in srgb, var(--danger) 30%, transparent)',
+              color: 'var(--danger)',
+              borderRadius: 'var(--radius-sm)',
+              padding: '0.7rem 1rem',
+              fontSize: '0.85rem',
+              marginBottom: '1rem',
+            }}
+          >
             {formError}
           </div>
         )}
@@ -374,20 +371,20 @@ export default function AuthPage({ mode = 'login' }) {
           {tab === 'login' ? (
             <>
               <div style={{ marginBottom: '1rem' }}>
-                <label style={labelStyle}>Username or Email</label>
+                <label className="label">Username or Email</label>
                 <input
                   type="text"
                   required
                   value={loginForm.username_or_email}
                   onChange={e => setField('login', 'username_or_email', e.target.value)}
                   placeholder="you@example.com or username"
-                  style={inputStyle}
+                  className="input"
                   autoComplete="username"
                 />
               </div>
 
               <div style={{ marginBottom: '0.75rem' }}>
-                <label style={labelStyle}>Password</label>
+                <label className="label">Password</label>
                 <div style={{ position: 'relative' }}>
                   <input
                     type={showPassword ? 'text' : 'password'}
@@ -395,7 +392,8 @@ export default function AuthPage({ mode = 'login' }) {
                     value={loginForm.password}
                     onChange={e => setField('login', 'password', e.target.value)}
                     placeholder="••••••••"
-                    style={{ ...inputStyle, paddingRight: '2.6rem' }}
+                    className="input"
+                    style={{ paddingRight: '2.6rem' }}
                     autoComplete="current-password"
                   />
                   <button
@@ -404,13 +402,13 @@ export default function AuthPage({ mode = 'login' }) {
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                     style={{
                       position: 'absolute',
-                      right: '0.6rem',
+                      right: '0.7rem',
                       top: '50%',
                       transform: 'translateY(-50%)',
                       background: 'none',
                       border: 'none',
                       cursor: 'pointer',
-                      fontSize: '1.05rem',
+                      fontSize: '1rem',
                     }}
                   >
                     {showPassword ? '🙈' : '👁️'}
@@ -418,26 +416,37 @@ export default function AuthPage({ mode = 'login' }) {
                 </div>
               </div>
 
-              <div style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                marginBottom: '1.25rem',
-              }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.85rem', cursor: 'pointer' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '1.4rem',
+                }}
+              >
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.45rem',
+                    fontSize: '0.85rem',
+                    cursor: 'pointer',
+                    color: 'var(--text-secondary)',
+                  }}
+                >
                   <input
                     type="checkbox"
                     checked={loginForm.remember_me}
                     onChange={e => setField('login', 'remember_me', e.target.checked)}
-                    style={{ accentColor: '#6366f1', width: 15, height: 15, cursor: 'pointer' }}
+                    style={{ accentColor: 'var(--accent)', width: 15, height: 15, cursor: 'pointer' }}
                   />
                   Remember Me
                 </label>
                 <button
                   type="button"
                   onClick={() => setShowReset(true)}
-                  style={{
-                    background: 'none', border: 'none', color: '#a78bfa',
-                    fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer',
-                  }}
+                  className="btn btn-ghost"
+                  style={{ fontSize: '0.82rem', padding: '0.3rem 0.5rem' }}
                 >
                   Forgot Password?
                 </button>
@@ -446,14 +455,8 @@ export default function AuthPage({ mode = 'login' }) {
               <button
                 type="submit"
                 disabled={busy}
-                style={{
-                  width: '100%', padding: '0.8rem', borderRadius: 12,
-                  border: 'none', cursor: 'pointer', fontWeight: 800,
-                  fontSize: '0.95rem',
-                  background: busy ? 'var(--card-border)' : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                  color: busy ? 'var(--text-muted)' : '#fff',
-                  boxShadow: busy ? 'none' : '0 4px 18px rgba(99,102,241,0.4)',
-                }}
+                className="btn btn-primary"
+                style={{ width: '100%', padding: '0.85rem', fontSize: '0.95rem' }}
               >
                 {busy ? 'Signing in…' : 'Sign In'}
               </button>
@@ -461,35 +464,35 @@ export default function AuthPage({ mode = 'login' }) {
           ) : (
             <>
               <div style={{ marginBottom: '1rem' }}>
-                <label style={labelStyle}>Username</label>
+                <label className="label">Username</label>
                 <input
                   type="text"
                   required
                   value={signupForm.username}
                   onChange={e => setField('signup', 'username', e.target.value)}
                   placeholder="e.g. study_warrior"
-                  style={inputStyle}
+                  className="input"
                   autoComplete="username"
                 />
                 <FieldError message={fieldErrors.username} />
               </div>
 
               <div style={{ marginBottom: '1rem' }}>
-                <label style={labelStyle}>Email</label>
+                <label className="label">Email</label>
                 <input
                   type="email"
                   required
                   value={signupForm.email}
                   onChange={e => setField('signup', 'email', e.target.value)}
                   placeholder="you@example.com"
-                  style={inputStyle}
+                  className="input"
                   autoComplete="email"
                 />
                 <FieldError message={fieldErrors.email} />
               </div>
 
               <div style={{ marginBottom: '1rem' }}>
-                <label style={labelStyle}>Password</label>
+                <label className="label">Password</label>
                 <div style={{ position: 'relative' }}>
                   <input
                     type={showPassword ? 'text' : 'password'}
@@ -497,7 +500,8 @@ export default function AuthPage({ mode = 'login' }) {
                     value={signupForm.password}
                     onChange={e => setField('signup', 'password', e.target.value)}
                     placeholder="8+ chars, a number and a symbol"
-                    style={{ ...inputStyle, paddingRight: '2.6rem' }}
+                    className="input"
+                    style={{ paddingRight: '2.6rem' }}
                     autoComplete="new-password"
                   />
                   <button
@@ -506,13 +510,13 @@ export default function AuthPage({ mode = 'login' }) {
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                     style={{
                       position: 'absolute',
-                      right: '0.6rem',
+                      right: '0.7rem',
                       top: '50%',
                       transform: 'translateY(-50%)',
                       background: 'none',
                       border: 'none',
                       cursor: 'pointer',
-                      fontSize: '1.05rem',
+                      fontSize: '1rem',
                     }}
                   >
                     {showPassword ? '🙈' : '👁️'}
@@ -523,14 +527,14 @@ export default function AuthPage({ mode = 'login' }) {
               </div>
 
               <div style={{ marginBottom: '1.5rem' }}>
-                <label style={labelStyle}>Confirm Password</label>
+                <label className="label">Confirm Password</label>
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
                   value={signupForm.confirm_password}
                   onChange={e => setField('signup', 'confirm_password', e.target.value)}
                   placeholder="Repeat your password"
-                  style={inputStyle}
+                  className="input"
                   autoComplete="new-password"
                 />
                 <FieldError message={fieldErrors.confirm_password} />
@@ -539,14 +543,8 @@ export default function AuthPage({ mode = 'login' }) {
               <button
                 type="submit"
                 disabled={busy}
-                style={{
-                  width: '100%', padding: '0.8rem', borderRadius: 12,
-                  border: 'none', cursor: 'pointer', fontWeight: 800,
-                  fontSize: '0.95rem',
-                  background: busy ? 'var(--card-border)' : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                  color: busy ? 'var(--text-muted)' : '#fff',
-                  boxShadow: busy ? 'none' : '0 4px 18px rgba(99,102,241,0.4)',
-                }}
+                className="btn btn-primary"
+                style={{ width: '100%', padding: '0.85rem', fontSize: '0.95rem' }}
               >
                 {busy ? 'Creating account…' : 'Create Account'}
               </button>

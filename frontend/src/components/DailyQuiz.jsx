@@ -33,10 +33,10 @@ function formatResetCountdown(sec) {
 }
 
 const TIER_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
-const TIER_COLOR = { easy: '#34d399', medium: '#fbbf24', hard: '#f87171' };
+const TIER_COLOR = { easy: 'var(--tier-easy)', medium: 'var(--tier-medium)', hard: 'var(--tier-hard)' };
 const CATEGORY_LABEL = {
-  current_affairs: { text: '📰 Current Affairs', color: '#38bdf8' },
-  gk: { text: '🧠 General Knowledge', color: '#a78bfa' },
+  current_affairs: { text: '📰 Current Affairs', color: 'var(--clay)' },
+  gk: { text: '🧠 General Knowledge', color: 'var(--plum)' },
 };
 
 // IST is a fixed UTC+05:30 (no DST), so midnight IST is computable directly.
@@ -58,28 +58,22 @@ function getTimeUntilMidnightIST(now = Date.now()) {
 // ─── Streak chips ─────────────────────────────────
 
 function StreakChips({ current, longest, tier }) {
-  const tierColor = TIER_COLOR[tier] || '#94a3b8';
+  const tierColor = TIER_COLOR[tier] || 'var(--text-secondary)';
   return (
-    <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-      <span style={{
-        background: 'rgba(251,146,60,0.12)', border: '1px solid rgba(251,146,60,0.35)',
-        color: '#fdba74', borderRadius: 20, padding: '0.3rem 0.9rem',
-        fontSize: '0.82rem', fontWeight: 700,
-      }}>
+    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.4rem' }}>
+      <span
+        className="pill"
+        style={{ color: 'var(--streak)', borderColor: 'color-mix(in srgb, var(--streak) 35%, transparent)', background: 'color-mix(in srgb, var(--streak) 10%, transparent)' }}
+      >
         🔥 {current} day streak
       </span>
-      <span style={{
-        background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)',
-        color: '#94a3b8', borderRadius: 20, padding: '0.3rem 0.9rem',
-        fontSize: '0.82rem', fontWeight: 600,
-      }}>
+      <span className="pill">
         🏆 Best: {longest}
       </span>
-      <span style={{
-        background: `${tierColor}18`, border: `1px solid ${tierColor}44`,
-        color: tierColor, borderRadius: 20, padding: '0.3rem 0.9rem',
-        fontSize: '0.82rem', fontWeight: 700,
-      }}>
+      <span
+        className="pill"
+        style={{ color: tierColor, borderColor: `color-mix(in srgb, ${tierColor} 27%, transparent)`, background: `color-mix(in srgb, ${tierColor} 9%, transparent)` }}
+      >
         🎯 GK Level: {TIER_LABEL[tier] || tier}
       </span>
     </div>
@@ -91,13 +85,19 @@ function StreakChips({ current, longest, tier }) {
 function QuizCountdown({ remaining }) {
   const danger = remaining <= 60;
   return (
-    <span style={{
-      fontFamily: 'monospace', fontWeight: 800, fontSize: '1.1rem',
-      color: danger ? '#f87171' : '#f8fafc',
-      background: danger ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.05)',
-      border: `1px solid ${danger ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.1)'}`,
-      borderRadius: 10, padding: '0.35rem 0.8rem',
-    }}>
+    <span
+      style={{
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+        fontWeight: 700,
+        fontSize: '1.02rem',
+        fontVariantNumeric: 'tabular-nums',
+        color: danger ? 'var(--danger)' : 'var(--text)',
+        background: danger ? 'color-mix(in srgb, var(--danger) 12%, transparent)' : 'var(--input-bg)',
+        border: `1px solid ${danger ? 'color-mix(in srgb, var(--danger) 40%, transparent)' : 'var(--card-border)'}`,
+        borderRadius: 999,
+        padding: '0.32rem 0.85rem',
+      }}
+    >
       ⏱ {formatCountdown(remaining)}
     </span>
   );
@@ -106,23 +106,12 @@ function QuizCountdown({ remaining }) {
 // ─── Skeleton Loader ──────────────────────────────
 
 function SkeletonCard() {
-  const shimmer = {
-    background: 'linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%)',
-    backgroundSize: '200% 100%',
-    animation: 'shimmer 1.5s infinite',
-    borderRadius: 8,
-  };
-
   return (
-    <div style={{
-      background: 'rgba(30,41,59,0.7)', border: '1px solid rgba(255,255,255,0.1)',
-      borderRadius: 20, padding: '2rem',
-    }}>
-      <div style={{ ...shimmer, width: 200, height: 24, marginBottom: 16 }} />
-      <div style={{ ...shimmer, width: '100%', height: 16, marginBottom: 12 }} />
-      <div style={{ ...shimmer, width: '60%', height: 16, marginBottom: 20 }} />
-      <div style={{ ...shimmer, width: 180, height: 44, borderRadius: 12 }} />
-      <style>{`@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }`}</style>
+    <div className="card" style={{ padding: '2.25rem' }}>
+      <div className="skeleton" style={{ width: 200, height: 24, marginBottom: 16 }} />
+      <div className="skeleton" style={{ width: '100%', height: 16, marginBottom: 12 }} />
+      <div className="skeleton" style={{ width: '60%', height: 16, marginBottom: 20 }} />
+      <div className="skeleton" style={{ width: 180, height: 44, borderRadius: 999 }} />
     </div>
   );
 }
@@ -134,7 +123,7 @@ function MiniLeaderboard({ entries }) {
 
   if (!entries || entries.length === 0) {
     return (
-      <div style={{ color: '#64748b', fontSize: '0.85rem', textAlign: 'center', padding: '1rem' }}>
+      <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textAlign: 'center', padding: '1rem' }}>
         No participants yet. Be the first!
       </div>
     );
@@ -143,21 +132,30 @@ function MiniLeaderboard({ entries }) {
   return (
     <div>
       {entries.map((e, i) => (
-        <div key={i} style={{
-          display: 'flex', alignItems: 'center', gap: '0.75rem',
-          padding: '0.5rem 0',
-          borderBottom: i < entries.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none',
-        }}>
-          <span style={{ fontSize: '1.1rem', width: 28, textAlign: 'center' }}>
-            {i < 3 ? medals[i] : <span style={{ color: '#64748b', fontSize: '0.8rem' }}>{i + 1}</span>}
+        <div
+          key={i}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            padding: '0.5rem 0',
+            borderBottom: i < entries.length - 1 ? '1px solid var(--card-border)' : 'none',
+          }}
+        >
+          <span style={{ fontSize: '1.05rem', width: 28, textAlign: 'center' }}>
+            {i < 3 ? medals[i] : <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{i + 1}</span>}
           </span>
           <span style={{ flex: 1, fontWeight: i < 3 ? 600 : 400, fontSize: '0.9rem' }}>
             {e.username}
           </span>
-          <span style={{
-            fontWeight: 700, fontSize: '0.95rem',
-            color: e.score >= 8 ? '#10b981' : e.score >= 5 ? '#f59e0b' : '#94a3b8',
-          }}>
+          <span
+            style={{
+              fontWeight: 700,
+              fontSize: '0.92rem',
+              fontVariantNumeric: 'tabular-nums',
+              color: e.score >= 8 ? 'var(--success)' : e.score >= 5 ? 'var(--streak)' : 'var(--text-secondary)',
+            }}
+          >
             {e.score}/10
           </span>
         </div>
@@ -171,35 +169,30 @@ function MiniLeaderboard({ entries }) {
 function HeroCard({ quizData, onStart }) {
   return (
     <div>
-      <div style={{
-        background: 'linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.1))',
-        border: '1px solid rgba(99,102,241,0.3)',
-        borderRadius: 20, padding: '2rem 2.5rem',
-        display: 'grid', gridTemplateColumns: '1fr 280px', gap: '2rem', alignItems: 'center',
-      }}>
+      <div
+        className="card wash-warm"
+        style={{ padding: '2.25rem', display: 'grid', gridTemplateColumns: '1fr 280px', gap: '2rem', alignItems: 'center' }}
+      >
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
-            <span style={{
-              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-              padding: '0.25rem 0.75rem', borderRadius: 20, fontSize: '0.75rem', fontWeight: 700,
-            }}>
-              DAILY CHALLENGE
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.9rem', flexWrap: 'wrap' }}>
+            <span className="pill" style={{ color: 'var(--streak)', borderColor: 'color-mix(in srgb, var(--streak) 35%, transparent)', background: 'color-mix(in srgb, var(--streak) 10%, transparent)' }}>
+              Daily challenge
             </span>
-            <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>
+            <span className="t-caption" style={{ fontSize: '0.8rem' }}>
               {new Date(quizData.date + 'T00:00:00').toLocaleDateString('en-US', {
                 weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
               })}
             </span>
           </div>
 
-          <h2 style={{ fontSize: '1.6rem', fontWeight: 800, marginBottom: '0.5rem' }}>
-            🧠 Daily GK & Current Affairs Quiz
+          <h2 className="t-headline">
+            🧠 Daily GK &amp; Current Affairs Quiz
           </h2>
 
-          <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '1.25rem', lineHeight: 1.5 }}>
+          <p className="t-body" style={{ margin: '0.75rem 0 1.4rem', fontSize: '0.92rem' }}>
             {quizData.total_questions} questions — 5 from today's headlines + 5 tuned to your GK level.
             <br />
-            <span style={{ color: '#64748b' }}>⏱ ~3 min &nbsp;|&nbsp; 📊 Global Leaderboard</span>
+            <span style={{ color: 'var(--text-muted)' }}>⏱ ~3 min · 📊 Global Leaderboard</span>
           </p>
 
           <StreakChips
@@ -208,26 +201,21 @@ function HeroCard({ quizData, onStart }) {
             tier={quizData.gk_skill_tier}
           />
 
-          <button onClick={onStart} style={{
-            background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-            color: 'white', border: 'none', borderRadius: 12, padding: '0.85rem 2rem',
-            fontSize: '1rem', fontWeight: 700, cursor: 'pointer',
-            boxShadow: '0 4px 20px rgba(99,102,241,0.4)',
-            transition: 'transform 0.15s, box-shadow 0.15s',
-          }}
-            onMouseEnter={e => { e.target.style.transform = 'translateY(-2px)'; e.target.style.boxShadow = '0 8px 30px rgba(99,102,241,0.5)'; }}
-            onMouseLeave={e => { e.target.style.transform = 'none'; e.target.style.boxShadow = '0 4px 20px rgba(99,102,241,0.4)'; }}
-          >
+          <button onClick={onStart} className="btn btn-primary" style={{ padding: '0.85rem 1.9rem', fontSize: '0.98rem' }}>
             ▶ Play Daily Quiz ({quizData.total_questions} Questions)
           </button>
         </div>
 
         {/* Mini Top-3 */}
-        <div style={{
-          background: 'rgba(15,23,42,0.5)', borderRadius: 14, padding: '1rem 1.25rem',
-          border: '1px solid rgba(255,255,255,0.06)',
-        }}>
-          <h4 style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem' }}>
+        <div
+          style={{
+            background: 'var(--input-bg)',
+            borderRadius: 'var(--radius-md)',
+            padding: '1.1rem 1.3rem',
+            border: '1px solid var(--card-border)',
+          }}
+        >
+          <h4 className="t-eyebrow" style={{ marginBottom: '0.75rem' }}>
             🏆 Today's Top Players
           </h4>
           <MiniLeaderboard entries={quizData.leaderboard_top3} />
@@ -349,17 +337,9 @@ function QuizRunner({ questions, checkedAnswers = [], onComplete }) {
 
   if (submitting) {
     return (
-      <div style={{
-        background: 'rgba(30,41,59,0.7)', border: '1px solid rgba(255,255,255,0.1)',
-        borderRadius: 20, padding: '3rem', textAlign: 'center',
-      }}>
-        <div style={{
-          width: 48, height: 48, border: '3px solid rgba(99,102,241,0.3)',
-          borderTopColor: '#6366f1', borderRadius: '50%',
-          animation: 'spin 0.8s linear infinite', margin: '0 auto 1rem',
-        }} />
-        <p style={{ color: '#94a3b8' }}>Grading your answers...</p>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <div className="card" style={{ padding: '3rem', textAlign: 'center' }}>
+        <div className="spinner" style={{ margin: '0 auto 1rem' }} />
+        <p className="t-body">Grading your answers...</p>
       </div>
     );
   }
@@ -378,49 +358,47 @@ function QuizRunner({ questions, checkedAnswers = [], onComplete }) {
   };
 
   return (
-    <div style={{
-      background: 'rgba(30,41,59,0.7)', border: '1px solid rgba(255,255,255,0.1)',
-      borderRadius: 20, padding: '2rem 2.5rem',
-    }}>
+    <div className="card" style={{ padding: '2.25rem' }}>
       {/* Header: progress + timer */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1rem', flexWrap: 'wrap' }}>
-        <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
+        <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
           Question {currentIdx + 1} of {total}
           {cat && (
-            <span style={{
-              marginLeft: '0.75rem', fontSize: '0.75rem', fontWeight: 700,
-              color: cat.color, background: `${cat.color}18`,
-              border: `1px solid ${cat.color}44`, borderRadius: 20,
-              padding: '0.15rem 0.7rem',
-            }}>
+            <span
+              style={{
+                marginLeft: '0.75rem',
+                fontSize: '0.75rem',
+                fontWeight: 650,
+                color: cat.color,
+                background: `color-mix(in srgb, ${cat.color} 9%, transparent)`,
+                border: `1px solid color-mix(in srgb, ${cat.color} 24%, transparent)`,
+                borderRadius: 999,
+                padding: '0.15rem 0.7rem',
+              }}
+            >
               {cat.text}
             </span>
           )}
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
             Answered {answeredCount}/{total}
           </span>
           <QuizCountdown remaining={remaining} />
         </div>
       </div>
 
-      <div style={{
-        height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.08)', marginBottom: '2rem', overflow: 'hidden',
-      }}>
-        <div style={{
-          height: '100%', borderRadius: 3, background: 'linear-gradient(90deg, #6366f1, #8b5cf6)',
-          width: `${(answeredCount / total) * 100}%`, transition: 'width 0.4s ease',
-        }} />
+      <div className="progress-track" style={{ marginBottom: '2rem' }}>
+        <div className="progress-fill" style={{ width: `${(answeredCount / total) * 100}%` }} />
       </div>
 
       {/* Question */}
-      <h3 style={{ fontSize: '1.15rem', fontWeight: 600, marginBottom: '1.5rem', lineHeight: 1.5 }}>
+      <h3 style={{ fontSize: '1.2rem', fontWeight: 650, letterSpacing: '-0.02em', marginBottom: '1.6rem', lineHeight: 1.5 }}>
         {current.question_text}
       </h3>
 
       {/* Options — one answer per question: tapping locks it and reveals the review */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
         {current.options.map((opt, idx) => {
           const isCorrectOption = review && idx === review.correct_index;
           const isWrongSelected = review && idx === review.selected_index && !review.is_correct;
@@ -428,59 +406,90 @@ function QuizRunner({ questions, checkedAnswers = [], onComplete }) {
           const isPendingPick = isChecking && pendingIdx === idx;
           const disabled = !!review || isChecking;
 
-          let bg = 'rgba(255,255,255,0.04)';
-          let borderColor = 'rgba(255,255,255,0.12)';
+          let bg = 'var(--input-bg)';
+          let borderColor = 'var(--card-border)';
           if (isPendingPick) {
-            bg = 'rgba(99,102,241,0.2)';
-            borderColor = 'rgba(99,102,241,0.7)';
+            bg = 'var(--accent-soft)';
+            borderColor = 'var(--accent)';
           } else if (isCorrectOption) {
-            bg = 'rgba(16,185,129,0.16)';
-            borderColor = '#10b981';
+            bg = 'color-mix(in srgb, var(--success) 12%, transparent)';
+            borderColor = 'var(--success)';
           } else if (isWrongSelected) {
-            bg = 'rgba(239,68,68,0.14)';
-            borderColor = '#ef4444';
+            bg = 'color-mix(in srgb, var(--danger) 10%, transparent)';
+            borderColor = 'var(--danger)';
           }
 
           return (
-            <button key={idx} onClick={() => handleSelect(idx)} disabled={disabled} style={{
-              background: bg,
-              border: `1px solid ${borderColor}`,
-              borderRadius: 12, padding: '1rem 1.25rem',
-              color: '#f8fafc', fontSize: '0.95rem',
-              cursor: disabled ? 'default' : 'pointer', textAlign: 'left',
-              transition: 'all 0.15s',
-              display: 'flex', alignItems: 'center', gap: '0.75rem',
-              opacity: review && !isChosen && !isCorrectOption ? 0.55 : 1,
-            }}
+            <button
+              key={idx}
+              onClick={() => handleSelect(idx)}
+              disabled={disabled}
+              style={{
+                background: bg,
+                border: `1px solid ${borderColor}`,
+                borderRadius: 'var(--radius-sm)',
+                padding: '1rem 1.2rem',
+                color: 'var(--text)',
+                fontSize: '0.95rem',
+                fontFamily: 'inherit',
+                cursor: disabled ? 'default' : 'pointer',
+                textAlign: 'left',
+                transition: 'background 0.2s, border-color 0.2s, transform 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.8rem',
+                opacity: review && !isChosen && !isCorrectOption ? 0.5 : 1,
+              }}
               onMouseEnter={e => {
                 if (!disabled && !isChosen) {
-                  e.currentTarget.style.background = 'rgba(99,102,241,0.15)';
-                  e.currentTarget.style.borderColor = 'rgba(99,102,241,0.4)';
+                  e.currentTarget.style.borderColor = 'var(--accent)';
+                  e.currentTarget.style.background = 'var(--accent-soft)';
                 }
               }}
               onMouseLeave={e => {
                 if (!disabled && !isChosen) {
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
-                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)';
+                  e.currentTarget.style.borderColor = borderColor;
+                  e.currentTarget.style.background = bg;
                 }
               }}
             >
-              <span style={{
-                width: 28, height: 28, borderRadius: 8,
-                background: isCorrectOption ? '#10b981'
-                  : isWrongSelected ? '#ef4444'
-                  : isPendingPick ? '#6366f1'
-                  : 'rgba(255,255,255,0.08)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '0.8rem', fontWeight: 700, flexShrink: 0,
-                color: (isCorrectOption || isWrongSelected || isPendingPick) ? '#fff' : undefined,
-              }}>
+              <span
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 9,
+                  background: isCorrectOption
+                    ? 'var(--success)'
+                    : isWrongSelected
+                      ? 'var(--danger)'
+                      : isPendingPick
+                        ? 'var(--accent)'
+                        : 'var(--input-bg)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  flexShrink: 0,
+                  color: (isCorrectOption || isWrongSelected) ? '#fff' : (isPendingPick ? 'var(--accent-contrast)' : 'var(--text-secondary)'),
+                }}
+              >
                 {review && idx === review.correct_index ? '✓' : String.fromCharCode(65 + idx)}
               </span>
               {opt}
-              {isChosen && <span style={{ marginLeft: 'auto', fontSize: '0.75rem', fontWeight: 700, color: review.is_correct ? '#34d399' : '#f87171', flexShrink: 0 }}>
-                {review.is_correct ? 'Correct' : 'Your answer'}
-              </span>}
+              {isChosen && (
+                <span
+                  style={{
+                    marginLeft: 'auto',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    color: review.is_correct ? 'var(--success)' : 'var(--danger)',
+                    flexShrink: 0,
+                  }}
+                >
+                  {review.is_correct ? 'Correct' : 'Your answer'}
+                </span>
+              )}
             </button>
           );
         })}
@@ -488,41 +497,47 @@ function QuizRunner({ questions, checkedAnswers = [], onComplete }) {
 
       {/* Per-question review — shown only for the question just answered */}
       {isChecking && !review && (
-        <div style={{ marginTop: '1rem', fontSize: '0.85rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span style={{
-            width: 16, height: 16, borderRadius: '50%',
-            border: '2px solid rgba(99,102,241,0.3)', borderTopColor: '#6366f1',
-            animation: 'spin 0.8s linear infinite', display: 'inline-block',
-          }} />
+        <div style={{ marginTop: '1rem', fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span
+            className="spinner"
+            style={{ width: 16, height: 16, borderWidth: 2, display: 'inline-block' }}
+          />
           Locking in your answer…
         </div>
       )}
 
       {review && (
-        <div style={{
-          marginTop: '1.25rem', padding: '1rem 1.25rem', borderRadius: 12,
-          background: review.is_correct ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
-          border: `1px solid ${review.is_correct ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`,
-        }}>
-          <div style={{ fontWeight: 700, fontSize: '0.95rem', color: review.is_correct ? '#34d399' : '#fca5a5', marginBottom: '0.25rem' }}>
+        <div
+          style={{
+            marginTop: '1.4rem',
+            padding: '1.1rem 1.3rem',
+            borderRadius: 'var(--radius-md)',
+            background: review.is_correct ? 'color-mix(in srgb, var(--success) 8%, transparent)' : 'color-mix(in srgb, var(--danger) 8%, transparent)',
+            border: `1px solid ${review.is_correct ? 'color-mix(in srgb, var(--success) 30%, transparent)' : 'color-mix(in srgb, var(--danger) 30%, transparent)'}`,
+          }}
+        >
+          <div
+            style={{
+              fontWeight: 700,
+              fontSize: '0.95rem',
+              color: review.is_correct ? 'var(--success)' : 'var(--danger)',
+              marginBottom: '0.25rem',
+            }}
+          >
             {review.is_correct
               ? '✓ Correct!'
               : `✗ Incorrect — the answer is ${keys[review.correct_index]}: ${current.options[review.correct_index]}`}
           </div>
           {review.explanation && (
-            <div style={{ marginTop: '0.4rem', color: '#cbd5e1', fontSize: '0.87rem', lineHeight: 1.55 }}>
+            <div style={{ marginTop: '0.4rem', color: 'var(--text-secondary)', fontSize: '0.88rem', lineHeight: 1.55 }}>
               💡 {review.explanation}
             </div>
           )}
-          <div style={{ marginTop: '0.6rem', fontSize: '0.72rem', color: '#64748b' }}>
+          <div style={{ marginTop: '0.6rem', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
             🔒 Answer locked — pick carefully, you can't change it once revealed.
           </div>
           {currentIdx < total - 1 && (
-            <button onClick={goNext} style={{
-              marginTop: '0.9rem', padding: '0.6rem 1.4rem', borderRadius: 10,
-              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', border: 'none',
-              color: '#fff', fontWeight: 700, fontSize: '0.88rem', cursor: 'pointer',
-            }}>
+            <button onClick={goNext} className="btn btn-primary" style={{ marginTop: '0.9rem', padding: '0.55rem 1.3rem', fontSize: '0.86rem' }}>
               Next Question →
             </button>
           )}
@@ -530,33 +545,48 @@ function QuizRunner({ questions, checkedAnswers = [], onComplete }) {
       )}
 
       {/* Dynamic question navigation grid */}
-      <div style={{
-        marginTop: '1.75rem', paddingTop: '1.25rem',
-        borderTop: '1px solid rgba(255,255,255,0.07)',
-      }}>
-        <div style={{
-          display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(40px, 1fr))`, gap: '0.45rem',
-        }}>
+      <div
+        style={{
+          marginTop: '1.9rem',
+          paddingTop: '1.4rem',
+          borderTop: '1px solid var(--card-border)',
+        }}
+      >
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(40px, 1fr))',
+            gap: '0.45rem',
+          }}
+        >
           {questions.map((q, idx) => {
             const answered = answers[q.id] != null;
             const isCurrent = idx === currentIdx;
             return (
-              <button key={q.id} onClick={() => setCurrentIdx(idx)} style={{
-                aspectRatio: '1', borderRadius: 10,
-                background: isCurrent
-                  ? 'linear-gradient(135deg, #6366f1, #8b5cf6)'
-                  : answered
-                    ? 'rgba(16,185,129,0.18)'
-                    : 'rgba(255,255,255,0.05)',
-                border: isCurrent
-                  ? 'none'
-                  : answered
-                    ? '1px solid rgba(16,185,129,0.45)'
-                    : '1px solid rgba(255,255,255,0.1)',
-                color: isCurrent ? '#fff' : answered ? '#34d399' : '#64748b',
-                fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer',
-                transition: 'all 0.15s',
-              }}>
+              <button
+                key={q.id}
+                onClick={() => setCurrentIdx(idx)}
+                style={{
+                  aspectRatio: '1',
+                  borderRadius: 'var(--radius-sm)',
+                  background: isCurrent
+                    ? 'var(--accent)'
+                    : answered
+                      ? 'color-mix(in srgb, var(--success) 16%, transparent)'
+                      : 'var(--input-bg)',
+                  border: isCurrent
+                    ? 'none'
+                    : answered
+                      ? '1px solid color-mix(in srgb, var(--success) 40%, transparent)'
+                      : '1px solid var(--card-border)',
+                  color: isCurrent ? 'var(--accent-contrast)' : answered ? 'var(--success)' : 'var(--text-muted)',
+                  fontWeight: 700,
+                  fontSize: '0.9rem',
+                  fontFamily: 'inherit',
+                  cursor: 'pointer',
+                  transition: 'transform 0.15s ease, background 0.2s',
+                }}
+              >
                 {answered ? '✓' : idx + 1}
               </button>
             );
@@ -564,55 +594,47 @@ function QuizRunner({ questions, checkedAnswers = [], onComplete }) {
         </div>
 
         {/* Prev / Next / Submit */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '1.25rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '1.4rem', flexWrap: 'wrap' }}>
           <button
             onClick={() => setCurrentIdx(i => Math.max(0, i - 1))}
             disabled={currentIdx === 0}
-            style={{
-              background: 'rgba(255,255,255,0.05)',
-              border: '1px solid rgba(255,255,255,0.12)',
-              borderRadius: 10, padding: '0.7rem 1.4rem',
-              color: currentIdx === 0 ? '#475569' : '#cbd5e1',
-              cursor: currentIdx === 0 ? 'not-allowed' : 'pointer',
-              fontSize: '0.9rem', fontWeight: 600,
-            }}
+            className="btn btn-secondary"
+            style={{ opacity: currentIdx === 0 ? 0.4 : 1, cursor: currentIdx === 0 ? 'not-allowed' : 'pointer' }}
           >
             ← Previous
           </button>
           {currentIdx < total - 1 && (
             <button
               onClick={() => setCurrentIdx(i => Math.min(total - 1, i + 1))}
-              style={{
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.12)',
-                borderRadius: 10, padding: '0.7rem 1.4rem',
-                color: '#cbd5e1', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600,
-              }}
+              className="btn btn-secondary"
             >
               Next →
             </button>
           )}
           <div style={{ flex: 1 }} />
-          <button onClick={() => doSubmit(false)} disabled={!allAnswered || isChecking} style={{
-            background: allAnswered && !isChecking ? 'linear-gradient(135deg, #10b981, #059669)' : 'rgba(255,255,255,0.05)',
-            border: allAnswered && !isChecking ? 'none' : '1px solid rgba(255,255,255,0.1)',
-            borderRadius: 10, padding: '0.7rem 1.6rem',
-            color: allAnswered && !isChecking ? '#fff' : '#475569',
-            cursor: allAnswered && !isChecking ? 'pointer' : 'not-allowed',
-            fontSize: '0.95rem', fontWeight: 800,
-            boxShadow: allAnswered && !isChecking ? '0 4px 16px rgba(16,185,129,0.35)' : 'none',
-          }}>
+          <button
+            onClick={() => doSubmit(false)}
+            disabled={!allAnswered || isChecking}
+            className={allAnswered && !isChecking ? 'btn btn-primary' : 'btn btn-secondary'}
+            style={allAnswered && !isChecking ? { background: 'var(--success)', boxShadow: '0 6px 18px color-mix(in srgb, var(--success) 30%, transparent)' } : { opacity: 0.5, cursor: 'not-allowed' }}
+          >
             {isChecking ? 'Saving…' : `Submit Quiz ${allAnswered ? '' : `(${answeredCount}/${total})`}`}
           </button>
         </div>
       </div>
 
       {error && (
-        <div style={{
-          marginTop: '1rem', padding: '0.75rem 1rem',
-          background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
-          borderRadius: 8, color: '#fca5a5', fontSize: '0.85rem',
-        }}>
+        <div
+          style={{
+            marginTop: '1rem',
+            padding: '0.75rem 1rem',
+            background: 'color-mix(in srgb, var(--danger) 10%, transparent)',
+            border: '1px solid color-mix(in srgb, var(--danger) 30%, transparent)',
+            borderRadius: 'var(--radius-sm)',
+            color: 'var(--danger)',
+            fontSize: '0.85rem',
+          }}
+        >
           {error}
         </div>
       )}
@@ -640,79 +662,82 @@ function CompletedCard({ quizData, result }) {
   const tierChanged = quizData.gk_skill_tier && result.gk_skill_tier
     && quizData.gk_skill_tier !== result.gk_skill_tier;
 
-  const scoreColor = score >= 8 ? '#10b981' : score >= 5 ? '#f59e0b' : '#ef4444';
+  const scoreColor = score >= 8 ? 'var(--success)' : score >= 5 ? 'var(--streak)' : 'var(--danger)';
   const badge = score >= 9 ? '🏆' : score >= 7 ? '⭐' : score >= 5 ? '👍' : '📚';
 
   return (
-    <div style={{
-      background: 'linear-gradient(135deg, rgba(16,185,129,0.12), rgba(99,102,241,0.08))',
-      border: '1px solid rgba(16,185,129,0.25)',
-      borderRadius: 20, padding: '2rem 2.5rem',
-    }}>
+    <div className="card wash-green" style={{ padding: '2.25rem' }}>
       {/* Score header */}
-      <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-        <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>{badge}</div>
-        <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.25rem' }}>
+      <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
+        <div style={{ fontSize: '2.8rem', marginBottom: '0.4rem' }}>{badge}</div>
+        <h2 className="t-headline">
           Quiz Complete!
         </h2>
 
         {/* Streak + level summary */}
-        <div style={{
-          display: 'flex', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap',
-          marginBottom: '1.25rem',
-        }}>
-          <span style={{
-            background: 'rgba(251,146,60,0.12)', border: '1px solid rgba(251,146,60,0.35)',
-            color: '#fdba74', borderRadius: 20, padding: '0.4rem 1.1rem',
-            fontSize: '0.9rem', fontWeight: 700,
-          }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            gap: '0.6rem',
+            flexWrap: 'wrap',
+            margin: '1rem 0 1.4rem',
+          }}
+        >
+          <span
+            className="pill"
+            style={{ color: 'var(--streak)', borderColor: 'color-mix(in srgb, var(--streak) 35%, transparent)', background: 'color-mix(in srgb, var(--streak) 10%, transparent)' }}
+          >
             🔥 Streak: {result.current_streak}
-            <span style={{ color: '#64748b', fontWeight: 500, fontSize: '0.78rem', marginLeft: '0.4rem' }}>
+            <span style={{ color: 'var(--text-muted)', fontWeight: 500, fontSize: '0.76rem', marginLeft: '0.3rem' }}>
               best {result.longest_streak}
             </span>
           </span>
           {result.gk_skill_tier && (
-            <span style={{
-              background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.4)',
-              color: '#c4b5fd', borderRadius: 20, padding: '0.4rem 1.1rem',
-              fontSize: '0.9rem', fontWeight: 700,
-            }}>
+            <span
+              className="pill"
+              style={{ color: 'var(--plum)', borderColor: 'color-mix(in srgb, var(--plum) 40%, transparent)', background: 'color-mix(in srgb, var(--plum) 10%, transparent)' }}
+            >
               🎯 Level: {TIER_LABEL[result.gk_skill_tier] || result.gk_skill_tier}
-              {tierChanged && <span style={{ marginLeft: '0.35rem' }}>↑</span>}
+              {tierChanged && <span style={{ marginLeft: '0.3rem' }}>↑</span>}
             </span>
           )}
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', marginTop: '0.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '2.25rem', marginTop: '0.5rem' }}>
           <div>
-            <div style={{ fontSize: '2.2rem', fontWeight: 800, color: scoreColor }}>
+            <div style={{ fontSize: '2.1rem', fontWeight: 700, letterSpacing: '-0.03em', color: scoreColor }}>
               {score}/{total}
             </div>
-            <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Score</div>
+            <div className="t-caption" style={{ fontSize: '0.78rem' }}>Score</div>
           </div>
-          <div style={{ width: 1, background: 'rgba(255,255,255,0.1)' }} />
+          <div style={{ width: 1, background: 'var(--card-border)' }} />
           <div>
-            <div style={{ fontSize: '2.2rem', fontWeight: 800 }}>{formatTime(time)}</div>
-            <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Time</div>
+            <div style={{ fontSize: '2.1rem', fontWeight: 700, letterSpacing: '-0.03em' }}>{formatTime(time)}</div>
+            <div className="t-caption" style={{ fontSize: '0.78rem' }}>Time</div>
           </div>
-          <div style={{ width: 1, background: 'rgba(255,255,255,0.1)' }} />
+          <div style={{ width: 1, background: 'var(--card-border)' }} />
           <div>
-            <div style={{ fontSize: '2.2rem', fontWeight: 800 }}>#{rank}</div>
-            <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Rank</div>
+            <div style={{ fontSize: '2.1rem', fontWeight: 700, letterSpacing: '-0.03em' }}>#{rank}</div>
+            <div className="t-caption" style={{ fontSize: '0.78rem' }}>Rank</div>
           </div>
         </div>
       </div>
 
       {/* Review toggle */}
-      <button onClick={() => setShowReview(r => !r)} style={{
-        width: '100%', background: 'rgba(255,255,255,0.04)',
-        border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12,
-        padding: '0.85rem 1.25rem', color: '#f8fafc',
-        cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600,
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-      }}>
-        <span>📝 Review Answers & Explanations</span>
-        <span style={{ transition: 'transform 0.2s', transform: showReview ? 'rotate(180deg)' : 'none' }}>
+      <button
+        onClick={() => setShowReview(r => !r)}
+        className="btn btn-secondary"
+        style={{
+          width: '100%',
+          padding: '0.85rem 1.25rem',
+          justifyContent: 'space-between',
+          fontSize: '0.9rem',
+          borderRadius: 'var(--radius-sm)',
+        }}
+      >
+        <span>📝 Review Answers &amp; Explanations</span>
+        <span style={{ transition: 'transform 0.25s', transform: showReview ? 'rotate(180deg)' : 'none', display: 'inline-block' }}>
           ▾
         </span>
       </button>
@@ -720,25 +745,29 @@ function CompletedCard({ quizData, result }) {
       {showReview && (
         <div style={{ marginTop: '1rem' }}>
           {review.map((r, i) => (
-            <div key={i} style={{
-              padding: '1rem 1.25rem', marginBottom: '0.75rem',
-              background: r.is_correct ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)',
-              border: `1px solid ${r.is_correct ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'}`,
-              borderRadius: 12,
-            }}>
-              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+            <div
+              key={i}
+              style={{
+                padding: '1rem 1.25rem',
+                marginBottom: '0.7rem',
+                background: r.is_correct ? 'color-mix(in srgb, var(--success) 7%, transparent)' : 'color-mix(in srgb, var(--danger) 7%, transparent)',
+                border: `1px solid ${r.is_correct ? 'color-mix(in srgb, var(--success) 20%, transparent)' : 'color-mix(in srgb, var(--danger) 20%, transparent)'}`,
+                borderRadius: 'var(--radius-sm)',
+              }}
+            >
+              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.4rem' }}>
                 <span>{r.is_correct ? '✅' : '❌'}</span>
                 <span style={{ fontWeight: 600, fontSize: '0.9rem', lineHeight: 1.5 }}>
                   {r.question_text}
                 </span>
               </div>
               {!r.is_correct && r.options && (
-                <div style={{ fontSize: '0.82rem', color: '#94a3b8', marginBottom: '0.25rem' }}>
-                  Your answer: <span style={{ color: '#fca5a5' }}>{r.options[r.selected_index]}</span>
-                  {' · '}Correct: <span style={{ color: '#6ee7b7' }}>{r.options[r.correct_index]}</span>
+                <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>
+                  Your answer: <span style={{ color: 'var(--danger)' }}>{r.options[r.selected_index]}</span>
+                  {' · '}Correct: <span style={{ color: 'var(--success)' }}>{r.options[r.correct_index]}</span>
                 </div>
               )}
-              <div style={{ fontSize: '0.8rem', color: '#64748b', lineHeight: 1.4 }}>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.45 }}>
                 💡 {r.explanation}
               </div>
             </div>
@@ -747,15 +776,27 @@ function CompletedCard({ quizData, result }) {
       )}
 
       {/* Countdown to next quiz */}
-      <div style={{
-        marginTop: '1.5rem', textAlign: 'center',
-        padding: '1rem', background: 'rgba(255,255,255,0.03)',
-        borderRadius: 10, border: '1px solid rgba(255,255,255,0.06)',
-      }}>
-        <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
+      <div
+        style={{
+          marginTop: '1.6rem',
+          textAlign: 'center',
+          padding: '1rem',
+          background: 'var(--input-bg)',
+          borderRadius: 'var(--radius-sm)',
+          border: '1px solid var(--card-border)',
+        }}
+      >
+        <span className="t-caption" style={{ fontSize: '0.8rem' }}>
           🔒 Next quiz unlocks at midnight IST in{' '}
         </span>
-        <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '1.1rem' }}>
+        <span
+          style={{
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+            fontWeight: 700,
+            fontSize: '1.05rem',
+            fontVariantNumeric: 'tabular-nums',
+          }}
+        >
           {formatResetCountdown(getTimeUntilMidnightIST(now))}
         </span>
       </div>
@@ -798,17 +839,14 @@ export default function DailyQuiz() {
   if (loading) return <SkeletonCard />;
   if (error) {
     return (
-      <div style={{
-        background: 'rgba(30,41,59,0.7)', border: '1px solid rgba(239,68,68,0.3)',
-        borderRadius: 20, padding: '2rem', textAlign: 'center',
-      }}>
-        <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⚠️</div>
-        <p style={{ color: '#fca5a5' }}>{error}</p>
-        <button onClick={() => window.location.reload()} style={{
-          marginTop: '1rem', background: 'rgba(255,255,255,0.08)',
-          border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8,
-          padding: '0.5rem 1.5rem', color: '#f8fafc', cursor: 'pointer',
-        }}>
+      <div className="card" style={{ padding: '2rem', textAlign: 'center', borderColor: 'color-mix(in srgb, var(--danger) 30%, transparent)' }}>
+        <div style={{ fontSize: '1.8rem', marginBottom: '0.5rem' }}>⚠️</div>
+        <p style={{ color: 'var(--danger)' }}>{error}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="btn btn-secondary"
+          style={{ marginTop: '1rem' }}
+        >
           Retry
         </button>
       </div>
