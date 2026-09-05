@@ -83,6 +83,9 @@ function DuelPlayer({ challenge, onDone }) {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const qStart = useRef(Date.now());
+  // Atomic guard so a rapid double-click/auto-repeat on "Next / Finish Duel"
+  // can neither skip a question nor submit the same answers twice.
+  const submitInFlight = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -97,28 +100,30 @@ function DuelPlayer({ challenge, onDone }) {
   const keys = ['A', 'B', 'C', 'D'];
 
   const recordAnswer = async () => {
-    if (selected === null) return;
-    const taken = Math.max(0, (Date.now() - qStart.current) / 1000);
-    const newAnswers = [...answers, {
-      question_id: question.id,
-      selected_index: selected,
-      time_taken_sec: Math.round(taken * 10) / 10,
-    }];
-    setAnswers(newAnswers);
-    setSelected(null);
-    if (isLast) {
-      setLoading(true);
-      try {
+    if (selected === null || submitInFlight.current) return;
+    submitInFlight.current = true;
+    try {
+      const taken = Math.max(0, (Date.now() - qStart.current) / 1000);
+      const newAnswers = [...answers, {
+        question_id: question.id,
+        selected_index: selected,
+        time_taken_sec: Math.round(taken * 10) / 10,
+      }];
+      setAnswers(newAnswers);
+      setSelected(null);
+      if (isLast) {
+        setLoading(true);
         const res = await submitChallenge(challenge.id, newAnswers);
         setResult(res);
-      } catch (e) {
-        setError(e.message);
-      } finally {
-        setLoading(false);
+      } else {
+        setQIndex(i => i + 1);
+        qStart.current = Date.now();
       }
-    } else {
-      setQIndex(i => i + 1);
-      qStart.current = Date.now();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+      submitInFlight.current = false;
     }
   };
 
@@ -148,6 +153,15 @@ function DuelPlayer({ challenge, onDone }) {
             <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{fmtTime(result.challenger_time_seconds)}</div>
           </div>
         </div>
+        {result.elo_change != null && result.elo_after != null && (
+          <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '1.1rem' }}>
+            🎯 Skill rating →{' '}
+            <strong style={{ color: '#fbbf24' }}>{Math.round(result.elo_after)}</strong>{' '}
+            <span style={{ fontWeight: 800, color: result.elo_change >= 0 ? '#34d399' : '#f87171' }}>
+              ({result.elo_change >= 0 ? '+' : ''}{result.elo_change})
+            </span>
+          </div>
+        )}
         <button onClick={onDone} style={btn('linear-gradient(135deg, #6366f1, #8b5cf6)')}>
           Done
         </button>

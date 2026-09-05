@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { fetchDailyQuiz, submitDailyQuiz } from '../api';
+import { fetchDailyQuiz, submitDailyQuiz, checkDailyQuizAnswer } from '../api';
 import LeaderboardPanel from './LeaderboardPanel';
 
 // ─── Helpers ──────────────────────────────────────
@@ -242,9 +242,24 @@ function HeroCard({ quizData, onStart }) {
 
 // ─── State B: Quiz Runner ─────────────────────────
 
-function QuizRunner({ questions, onComplete }) {
+function QuizRunner({ questions, checkedAnswers = [], onComplete }) {
   const [currentIdx, setCurrentIdx] = useState(0);
-  const [answers, setAnswers] = useState({}); // { [questionId]: selectedIndex }
+  // { [questionId]: { question_id, selected_index, is_correct, correct_index,
+  //                   explanation, ... } } — every entry is a LOCKED answer
+  // recorded by the server via /daily-quiz/check/. answered ⇒ reviewed.
+  const [answers, setAnswers] = useState(() => {
+    const init = {};
+    (checkedAnswers || []).forEach(a => {
+      if (a && a.question_id != null && a.selected_index != null) {
+        init[a.question_id] = a;
+      }
+    });
+    return init;
+  });
+  // question id whose answer is currently being graded by the server
+  const [checkingId, setCheckingId] = useState(null);
+  // option the user just tapped, highlighted while the server grades it
+  const [pendingIdx, setPendingIdx] = useState(null);
   const [remaining, setRemaining] = useState(QUIZ_LIMIT_SEC);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -261,8 +276,11 @@ function QuizRunner({ questions, onComplete }) {
     submittedRef.current = true;
 
     const payload = questions
-      .map(q => ({ question_id: q.id, selected_index: answers[q.id] }))
-      .filter(a => a.selected_index != null);
+      .map(q => (answers[q.id] ? {
+        question_id: q.id,
+        selected_index: answers[q.id].selected_index,
+      } : null))
+      .filter(Boolean);
 
     if (payload.length === 0) {
       setError(auto ? 'Time is up — answer at least one question!' : 'Answer at least one question first.');
@@ -303,13 +321,31 @@ function QuizRunner({ questions, onComplete }) {
     return () => clearInterval(iv);
   }, [submitting]);
 
+  // Grade + lock one answer. The server reveals the outcome in the same
+  // request, so reviewing never races with an unlocked answer.
+  const checkAnswer = useCallback(async (questionId, selectedIdx) => {
+    if (submitting || checkingId) return; // one in-flight check at a time
+    setPendingIdx(selectedIdx);
+    setCheckingId(questionId);
+    setError(null);
+    try {
+      const res = await checkDailyQuizAnswer(questionId, selectedIdx);
+      setAnswers(prev => (prev[questionId]
+        ? prev // already locked server-side — keep the original outcome
+        : { ...prev, [questionId]: res }));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setCheckingId(null);
+      setPendingIdx(null);
+    }
+  }, [submitting, checkingId]);
+
   const handleSelect = useCallback((selectedIdx) => {
     if (submitting || !current) return;
-    setAnswers(prev => ({ ...prev, [current.id]: selectedIdx }));
-    if (currentIdx < total - 1) {
-      setTimeout(() => setCurrentIdx(i => Math.min(i + 1, total - 1)), 250);
-    }
-  }, [submitting, current, currentIdx, total]);
+    if (answers[current.id] || checkingId) return; // locked / busy
+    checkAnswer(current.id, selectedIdx);
+  }, [submitting, current, answers, checkingId, checkAnswer]);
 
   if (submitting) {
     return (
@@ -331,7 +367,15 @@ function QuizRunner({ questions, onComplete }) {
   if (!current) return null;
 
   const cat = CATEGORY_LABEL[current.category] || null;
-  const selectedForCurrent = answers[current.id];
+  // Locked review for the visible question (null while unanswered)
+  const review = answers[current.id] || null;
+  const isChecking = checkingId === current.id;
+  const keys = ['A', 'B', 'C', 'D'];
+
+  // Move to the next question after reviewing this one.
+  const goNext = () => {
+    if (currentIdx < total - 1) setCurrentIdx(i => Math.min(total - 1, i + 1));
+  };
 
   return (
     <div style={{
@@ -375,28 +419,47 @@ function QuizRunner({ questions, onComplete }) {
         {current.question_text}
       </h3>
 
-      {/* Options */}
+      {/* Options — one answer per question: tapping locks it and reveals the review */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
         {current.options.map((opt, idx) => {
-          const isSelected = selectedForCurrent === idx;
+          const isCorrectOption = review && idx === review.correct_index;
+          const isWrongSelected = review && idx === review.selected_index && !review.is_correct;
+          const isChosen = !!review && idx === review.selected_index;
+          const isPendingPick = isChecking && pendingIdx === idx;
+          const disabled = !!review || isChecking;
+
+          let bg = 'rgba(255,255,255,0.04)';
+          let borderColor = 'rgba(255,255,255,0.12)';
+          if (isPendingPick) {
+            bg = 'rgba(99,102,241,0.2)';
+            borderColor = 'rgba(99,102,241,0.7)';
+          } else if (isCorrectOption) {
+            bg = 'rgba(16,185,129,0.16)';
+            borderColor = '#10b981';
+          } else if (isWrongSelected) {
+            bg = 'rgba(239,68,68,0.14)';
+            borderColor = '#ef4444';
+          }
+
           return (
-            <button key={idx} onClick={() => handleSelect(idx)} style={{
-              background: isSelected ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.04)',
-              border: isSelected ? '1px solid rgba(99,102,241,0.7)' : '1px solid rgba(255,255,255,0.12)',
+            <button key={idx} onClick={() => handleSelect(idx)} disabled={disabled} style={{
+              background: bg,
+              border: `1px solid ${borderColor}`,
               borderRadius: 12, padding: '1rem 1.25rem',
               color: '#f8fafc', fontSize: '0.95rem',
-              cursor: 'pointer', textAlign: 'left',
+              cursor: disabled ? 'default' : 'pointer', textAlign: 'left',
               transition: 'all 0.15s',
               display: 'flex', alignItems: 'center', gap: '0.75rem',
+              opacity: review && !isChosen && !isCorrectOption ? 0.55 : 1,
             }}
               onMouseEnter={e => {
-                if (!isSelected) {
+                if (!disabled && !isChosen) {
                   e.currentTarget.style.background = 'rgba(99,102,241,0.15)';
                   e.currentTarget.style.borderColor = 'rgba(99,102,241,0.4)';
                 }
               }}
               onMouseLeave={e => {
-                if (!isSelected) {
+                if (!disabled && !isChosen) {
                   e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
                   e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)';
                 }
@@ -404,17 +467,67 @@ function QuizRunner({ questions, onComplete }) {
             >
               <span style={{
                 width: 28, height: 28, borderRadius: 8,
-                background: isSelected ? '#6366f1' : 'rgba(255,255,255,0.08)',
+                background: isCorrectOption ? '#10b981'
+                  : isWrongSelected ? '#ef4444'
+                  : isPendingPick ? '#6366f1'
+                  : 'rgba(255,255,255,0.08)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: '0.8rem', fontWeight: 700, flexShrink: 0,
+                color: (isCorrectOption || isWrongSelected || isPendingPick) ? '#fff' : undefined,
               }}>
-                {String.fromCharCode(65 + idx)}
+                {review && idx === review.correct_index ? '✓' : String.fromCharCode(65 + idx)}
               </span>
               {opt}
+              {isChosen && <span style={{ marginLeft: 'auto', fontSize: '0.75rem', fontWeight: 700, color: review.is_correct ? '#34d399' : '#f87171', flexShrink: 0 }}>
+                {review.is_correct ? 'Correct' : 'Your answer'}
+              </span>}
             </button>
           );
         })}
       </div>
+
+      {/* Per-question review — shown only for the question just answered */}
+      {isChecking && !review && (
+        <div style={{ marginTop: '1rem', fontSize: '0.85rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span style={{
+            width: 16, height: 16, borderRadius: '50%',
+            border: '2px solid rgba(99,102,241,0.3)', borderTopColor: '#6366f1',
+            animation: 'spin 0.8s linear infinite', display: 'inline-block',
+          }} />
+          Locking in your answer…
+        </div>
+      )}
+
+      {review && (
+        <div style={{
+          marginTop: '1.25rem', padding: '1rem 1.25rem', borderRadius: 12,
+          background: review.is_correct ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+          border: `1px solid ${review.is_correct ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`,
+        }}>
+          <div style={{ fontWeight: 700, fontSize: '0.95rem', color: review.is_correct ? '#34d399' : '#fca5a5', marginBottom: '0.25rem' }}>
+            {review.is_correct
+              ? '✓ Correct!'
+              : `✗ Incorrect — the answer is ${keys[review.correct_index]}: ${current.options[review.correct_index]}`}
+          </div>
+          {review.explanation && (
+            <div style={{ marginTop: '0.4rem', color: '#cbd5e1', fontSize: '0.87rem', lineHeight: 1.55 }}>
+              💡 {review.explanation}
+            </div>
+          )}
+          <div style={{ marginTop: '0.6rem', fontSize: '0.72rem', color: '#64748b' }}>
+            🔒 Answer locked — pick carefully, you can't change it once revealed.
+          </div>
+          {currentIdx < total - 1 && (
+            <button onClick={goNext} style={{
+              marginTop: '0.9rem', padding: '0.6rem 1.4rem', borderRadius: 10,
+              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', border: 'none',
+              color: '#fff', fontWeight: 700, fontSize: '0.88rem', cursor: 'pointer',
+            }}>
+              Next Question →
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Dynamic question navigation grid */}
       <div style={{
@@ -480,16 +593,16 @@ function QuizRunner({ questions, onComplete }) {
             </button>
           )}
           <div style={{ flex: 1 }} />
-          <button onClick={() => doSubmit(false)} disabled={!allAnswered} style={{
-            background: allAnswered ? 'linear-gradient(135deg, #10b981, #059669)' : 'rgba(255,255,255,0.05)',
-            border: allAnswered ? 'none' : '1px solid rgba(255,255,255,0.1)',
+          <button onClick={() => doSubmit(false)} disabled={!allAnswered || isChecking} style={{
+            background: allAnswered && !isChecking ? 'linear-gradient(135deg, #10b981, #059669)' : 'rgba(255,255,255,0.05)',
+            border: allAnswered && !isChecking ? 'none' : '1px solid rgba(255,255,255,0.1)',
             borderRadius: 10, padding: '0.7rem 1.6rem',
-            color: allAnswered ? '#fff' : '#475569',
-            cursor: allAnswered ? 'pointer' : 'not-allowed',
+            color: allAnswered && !isChecking ? '#fff' : '#475569',
+            cursor: allAnswered && !isChecking ? 'pointer' : 'not-allowed',
             fontSize: '0.95rem', fontWeight: 800,
-            boxShadow: allAnswered ? '0 4px 16px rgba(16,185,129,0.35)' : 'none',
+            boxShadow: allAnswered && !isChecking ? '0 4px 16px rgba(16,185,129,0.35)' : 'none',
           }}>
-            Submit Quiz {allAnswered ? '' : `(${answeredCount}/${total})`}
+            {isChecking ? 'Saving…' : `Submit Quiz ${allAnswered ? '' : `(${answeredCount}/${total})`}`}
           </button>
         </div>
       </div>
@@ -718,6 +831,7 @@ export default function DailyQuiz() {
       {view === 'quiz' && (
         <QuizRunner
           questions={quizData.questions}
+          checkedAnswers={quizData.checked_answers || []}
           onComplete={handleComplete}
         />
       )}

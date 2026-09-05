@@ -311,6 +311,49 @@ class DailyQuizSession(models.Model):
         ]
 
 
+class DailyQuizAnswer(models.Model):
+    """A single locked, graded answer in today's daily quiz run.
+
+    Recorded the moment the user answers a question (via the per-question
+    check endpoint) so instant feedback can be shown without making the final
+    score gameable: once a question is answered it is immutable — the user
+    cannot retry after seeing the correct answer. The submission is then
+    graded exclusively from these rows.
+
+    Unanswered questions (skipped / timeout) simply have no row.
+    """
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='daily_quiz_answers'
+    )
+    quiz = models.ForeignKey(
+        DailyQuiz, on_delete=models.CASCADE, related_name='recorded_answers'
+    )
+    question = models.ForeignKey(
+        DailyQuestion, on_delete=models.CASCADE, related_name='recorded_answers'
+    )
+    selected_index = models.IntegerField()  # 0-3, locked forever
+    is_correct = models.BooleanField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return (
+            f"{self.user.username} — {self.quiz.date} "
+            f"Q{self.question.order}: {'✓' if self.is_correct else '✗'}"
+        )
+
+    class Meta:
+        ordering = ['created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'quiz', 'question'],
+                name='uniq_user_quiz_question_answer',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['user', 'quiz']),
+        ]
+
+
 # ═══════════════════════════════════════════════
 #  Social Graph & Direct Challenges
 # ═══════════════════════════════════════════════

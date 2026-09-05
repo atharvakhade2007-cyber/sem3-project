@@ -257,6 +257,55 @@ def _shift_tier(tier: str, delta: int) -> str:
     return TIER_ORDER[new_index]
 
 
+class QuizAnswerConflict(Exception):
+    """Raised when a user tries to change a locked (already answered) question."""
+
+
+def record_daily_quiz_answer(quiz, user, question, selected_index):
+    """
+    Grade and lock a single daily-quiz answer for ``user`` on ``question``.
+
+    Idempotent: replaying the same selection returns the existing row without
+    creating a duplicate. Attempting a different selection on an answered
+    question raises ``QuizAnswerConflict`` — the answer is locked the moment it
+    is revealed, which is what keeps instant feedback fair (one attempt per
+    question, no retry-after-seeing-the-answer).
+
+    Returns the DailyQuizAnswer row.
+    """
+    from study_core.models import DailyQuizAnswer
+
+    existing = DailyQuizAnswer.objects.filter(
+        user=user, quiz=quiz, question=question
+    ).first()
+    if existing is not None:
+        if existing.selected_index == selected_index:
+            return existing
+        raise QuizAnswerConflict(
+            'This question is already answered and locked.'
+        )
+
+    is_correct = selected_index == question.correct_index
+    return DailyQuizAnswer.objects.create(
+        user=user,
+        quiz=quiz,
+        question=question,
+        selected_index=selected_index,
+        is_correct=is_correct,
+    )
+
+
+def recorded_answers_for_user(quiz, user):
+    """All locked answers for ``user`` on ``quiz`` (newest-last), question joined."""
+    from study_core.models import DailyQuizAnswer
+
+    return list(
+        DailyQuizAnswer.objects.filter(user=user, quiz=quiz)
+        .select_related('question')
+        .order_by('created_at')
+    )
+
+
 def apply_quiz_completion(profile: UserProfile, gk_correct: int, completed_date) -> None:
     """
     Update a profile after a daily quiz submission, in place (no save):

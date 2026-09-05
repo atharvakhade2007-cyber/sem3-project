@@ -53,7 +53,16 @@ export default function AdaptiveTest({ documentId }) {
   });
   const [results, setResults] = useState(null);
   const [error, setError] = useState(null);
+  // The next question returned by the server while the user is still reviewing
+  // the answer they just submitted. It is deliberately NOT written into
+  // `question` until the user advances — the review screen must always render
+  // the question that was actually answered, never a pre-loaded next one.
+  const [pendingQuestion, setPendingQuestion] = useState(null);
   const questionStartTime = useRef(null);
+  // Atomic guard against double-invocation of submit (Enter key auto-repeat or
+  // rapid double clicks) while an answer request is in flight — otherwise the
+  // same answer could be graded twice against the server.
+  const submitInFlightRef = useRef(false);
 
   // ─── Start the test ──────────────────────────
   const handleStart = useCallback(async () => {
@@ -63,7 +72,11 @@ export default function AdaptiveTest({ documentId }) {
       setSessionId(data.session_id);
       setStats(prev => ({ ...prev, elo: data.start_elo }));
       setQuestion(data.question);
+      setPendingQuestion(null);
       setSelectedIndex(null);
+      setFeedback(null);
+      setError(null);
+      submitInFlightRef.current = false;
       questionStartTime.current = Date.now();
       setState(STATES.QUESTION);
     } catch (err) {
@@ -81,6 +94,8 @@ export default function AdaptiveTest({ documentId }) {
   // ─── Submit the selected answer ──────────────
   const handleSubmitAnswer = useCallback(async () => {
     if (state !== STATES.QUESTION || selectedIndex === null) return;
+    if (submitInFlightRef.current) return; // already submitting — ignore repeats
+    submitInFlightRef.current = true;
 
     setState(STATES.SUBMITTING);
     const timeTaken = (Date.now() - questionStartTime.current) / 1000;
@@ -102,10 +117,12 @@ export default function AdaptiveTest({ documentId }) {
         eloChange: data.elo_change,
       }));
 
-      // Store next question for after feedback
-      if (data.next_question) {
-        setQuestion(data.next_question);
-      }
+      // ── Do NOT swap `question` here. ──
+      // `question` stays on the question the user just answered so the FEEDBACK
+      // review (correct option + explanation) is rendered against the correct
+      // question. The server's next question is stashed and only mounted when
+      // handleNext performs the atomic transition.
+      setPendingQuestion(data.next_question || null);
 
       if (data.session_completed) {
         const resultsData = await completeTest(sessionId);
@@ -116,22 +133,40 @@ export default function AdaptiveTest({ documentId }) {
     } catch (err) {
       setError(err.message);
       setState(STATES.ERROR);
+    } finally {
+      submitInFlightRef.current = false;
     }
   }, [state, selectedIndex, sessionId, question]);
 
   // ─── Move to next question after feedback ────
   const handleNext = useCallback(() => {
+    if (state !== STATES.FEEDBACK) return;
+
+    // Final question — the review screen is showing the last answer, results
+    // are already fetched, so go straight to the summary.
     if (results) {
       setState(STATES.COMPLETE);
       return;
     }
-    if (question) {
-      setSelectedIndex(null);
-      setFeedback(null);
-      questionStartTime.current = Date.now();
-      setState(STATES.QUESTION);
-    }
-  }, [results, question]);
+
+    // No server-provided next question and no results: nothing valid to
+    // transition to. Stay on the review screen instead of corrupting state.
+    if (!pendingQuestion) return;
+
+    // ── Atomic teardown + transition ──────────────────────────
+    // Mount the next question and clear every piece of the previous question's
+    // review state (selection, feedback/explanation, per-question timer) in the
+    // same commit. Combined with key={question.id} on the card below, the old
+    // question subtree is unmounted cleanly — its feedback can never leak onto
+    // the newly mounted question view.
+    setQuestion(pendingQuestion);
+    setPendingQuestion(null);
+    setSelectedIndex(null);
+    setFeedback(null);
+    setError(null);
+    questionStartTime.current = Date.now();
+    setState(STATES.QUESTION);
+  }, [state, results, pendingQuestion]);
 
   // ─── Keyboard shortcuts ──────────────────────
   useEffect(() => {
@@ -296,6 +331,10 @@ export default function AdaptiveTest({ documentId }) {
   // ─── Render: QUESTION or FEEDBACK ────────────
   const isFeedback = state === STATES.FEEDBACK;
   const keys = ['A', 'B', 'C', 'D'];
+  // During FEEDBACK the card still shows the just-answered question (ordinal =
+  // answered count). After advancing, the fresh question is the next one
+  // (ordinal = answered count + 1).
+  const questionNumber = stats.answered + (isFeedback ? 0 : 1);
 
   return (
     <div>
@@ -313,8 +352,10 @@ export default function AdaptiveTest({ documentId }) {
             <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>{stats.answered} answered</span>
           </div>
 
-          {/* Question Card */}
-          <div style={{
+          {/* Question Card — keyed by the unique question id so React cleanly
+              unmounts the previous question (and any per-question state) the
+              instant we transition to the next one. */}
+          <div key={question?.id} style={{
             background: 'rgba(30,41,59,0.7)', border: '1px solid rgba(255,255,255,0.1)',
             borderRadius: 16, padding: '1.5rem', boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
           }}>
@@ -324,7 +365,7 @@ export default function AdaptiveTest({ documentId }) {
                 background: 'rgba(99,102,241,0.2)', color: '#a5b4fc', fontWeight: 700,
                 fontSize: '0.8rem', padding: '0.25rem 0.6rem', borderRadius: 6,
               }}>
-                Q{stats.answered + 1}
+                Q{questionNumber}
               </span>
               <DiffBadge label={question?.difficulty_label} />
             </div>

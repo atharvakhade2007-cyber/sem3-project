@@ -4,11 +4,19 @@ from datetime import timedelta
 
 from rest_framework import status
 from rest_framework.test import APIClient
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
+
+from .services.rating_engine import (
+    expected_score,
+    k_factor,
+    resolve_duel_outcome,
+    duels_played,
+)
 
 from .models import (
     Friendship, QuizChallenge, Document, Question,
-    TestSession, SessionResponse, DailyQuiz, DailyQuizSession,
+    TestSession, SessionResponse, DailyQuiz, DailyQuestion,
+    DailyQuizSession, DailyQuizAnswer,
 )
 
 
@@ -348,6 +356,120 @@ class ChallengeApiTests(TestCase):
         self.assertEqual(play.status_code, status.HTTP_400_BAD_REQUEST)
 
 
+class DailyQuizAnswerFlowTests(TestCase):
+    """Per-question locked answers (instant feedback without a gameable score)."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.user = make_user('quizzy')
+        self.client.force_authenticate(user=self.user)
+        self.today = timezone.localdate()
+        self.quiz = DailyQuiz.objects.create(date=self.today)
+
+        # 2 universal CA + 2 GK on the default medium tier → 4 served questions
+        self.ca1 = DailyQuestion.objects.create(
+            quiz=self.quiz, category='current_affairs', difficulty_tier=None,
+            question_text='CA1', options=['A', 'B', 'C', 'D'],
+            correct_index=0, order=1,
+        )
+        self.ca2 = DailyQuestion.objects.create(
+            quiz=self.quiz, category='current_affairs', difficulty_tier=None,
+            question_text='CA2', options=['A', 'B', 'C', 'D'],
+            correct_index=1, order=2,
+        )
+        self.gk1 = DailyQuestion.objects.create(
+            quiz=self.quiz, category='gk', difficulty_tier='medium',
+            question_text='GK1', options=['A', 'B', 'C', 'D'],
+            correct_index=2, order=3,
+        )
+        self.gk2 = DailyQuestion.objects.create(
+            quiz=self.quiz, category='gk', difficulty_tier='medium',
+            question_text='GK2', options=['A', 'B', 'C', 'D'],
+            correct_index=3, order=4,
+        )
+
+    def _check(self, q, index):
+        return self.client.post(
+            '/api/v2/daily-quiz/check/',
+            {'question_id': str(q.id), 'selected_index': index},
+            format='json',
+        )
+
+    def test_check_locks_answer_and_reveals_outcome(self):
+        # Wrong answer → outcome revealed, but the row is locked server-side
+        res = self._check(self.ca1, 1)
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        self.assertFalse(res.data['is_correct'])
+        self.assertEqual(res.data['correct_index'], 0)
+        self.assertIn('explanation', res.data)
+
+        # Replaying the same selection is idempotent
+        again = self._check(self.ca1, 1)
+        self.assertEqual(again.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(DailyQuizAnswer.objects.count(), 1)
+
+        # Changing an answered question is rejected
+        flip = self._check(self.ca1, 0)
+        self.assertEqual(flip.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(DailyQuizAnswer.objects.count(), 1)
+
+        # today GET exposes the locked answers for resume
+        today = self.client.get('/api/v2/daily-quiz/today/')
+        self.assertEqual(today.status_code, status.HTTP_200_OK)
+        self.assertFalse(today.data['user_completed'])
+        self.assertEqual(len(today.data['checked_answers']), 1)
+        self.assertEqual(
+            today.data['checked_answers'][0]['question_id'], str(self.ca1.id)
+        )
+
+    def test_submit_grades_exclusively_from_recorded_answers(self):
+        self._check(self.ca1, 1)   # wrong
+        self._check(self.gk1, 2)   # correct (GK)
+
+        # A payload claiming every question is correct has no authority —
+        # grading uses only the locked answers.
+        cheat_payload = [
+            {'question_id': str(q.id), 'selected_index': q.correct_index}
+            for q in (self.ca1, self.ca2, self.gk1, self.gk2)
+        ]
+        res = self.client.post(
+            '/api/v2/daily-quiz/submit/',
+            {'answers': cheat_payload, 'total_time_sec': 42},
+            format='json',
+        )
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(res.data['score'], 1)          # only the locked correct one
+        self.assertEqual(res.data['gk_correct'], 1)
+        self.assertEqual(len(res.data['review']), 2)    # only answered questions
+
+        session = DailyQuizSession.objects.get(user=self.user, quiz=self.quiz)
+        self.assertEqual(session.score, 1)
+
+        # Double submit still rejected
+        dup = self.client.post(
+            '/api/v2/daily-quiz/submit/',
+            {'answers': cheat_payload, 'total_time_sec': 1},
+            format='json',
+        )
+        self.assertEqual(dup.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_check_rejected_after_completion_and_for_foreign_question(self):
+        self._check(self.ca1, 0)
+        payload = [
+            {'question_id': str(q.id), 'selected_index': q.correct_index}
+            for q in (self.ca1, self.ca2, self.gk1, self.gk2)
+        ]
+        sub = self.client.post(
+            '/api/v2/daily-quiz/submit/',
+            {'answers': payload, 'total_time_sec': 10},
+            format='json',
+        )
+        self.assertEqual(sub.status_code, status.HTTP_201_CREATED)
+        # Once the day's quiz is completed, no more answers can be locked
+        res = self._check(self.ca2, 1)
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+
 class FriendLeaderboardTests(TestCase):
     def setUp(self):
         self.client = APIClient()
@@ -397,3 +519,218 @@ class FriendLeaderboardTests(TestCase):
 
         bad = self._as(alice).get('/api/leaderboard/friends/?metric=bogus')
         self.assertEqual(bad.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class RatingEngineMathTests(SimpleTestCase):
+    """Pure-math checks for the Elo engine (no DB)."""
+
+    def test_expected_score(self):
+        self.assertAlmostEqual(expected_score(1200, 1200), 0.5, places=6)
+        # A 400-point favourite ≈ 91% win probability
+        self.assertAlmostEqual(expected_score(1600, 1200), 0.9090909, places=6)
+        self.assertAlmostEqual(expected_score(1200, 1600), 0.0909091, places=6)
+
+    def test_k_factor_bands(self):
+        # Provisional: fewer than 20 duels, regardless of rating
+        self.assertEqual(k_factor(0, 1200), 40)
+        self.assertEqual(k_factor(19, 2100), 40)
+        # Standard established player
+        self.assertEqual(k_factor(20, 1200), 20)
+        self.assertEqual(k_factor(20, 2000), 20)
+        # High tier: 20+ duels AND rating above 2000
+        self.assertEqual(k_factor(20, 2000.1), 10)
+        self.assertEqual(k_factor(99, 2500), 10)
+
+    def test_resolve_duel_outcome(self):
+        # Higher score always wins
+        self.assertEqual(
+            resolve_duel_outcome(3, 50, 2, 40), ('challenger', 1.0)
+        )
+        self.assertEqual(
+            resolve_duel_outcome(1, 5, 3, 99), ('challenged', 0.0)
+        )
+        # Equal scores → faster time wins when the gap is >= 1s
+        self.assertEqual(
+            resolve_duel_outcome(2, 50.0, 2, 49.0), ('challenged', 0.0)
+        )
+        self.assertEqual(
+            resolve_duel_outcome(2, 45.0, 2, 46.0), ('challenger', 1.0)
+        )
+        # Equal scores within 1s → draw
+        self.assertEqual(
+            resolve_duel_outcome(2, 50.0, 2, 50.4), ('draw', 0.5)
+        )
+        self.assertEqual(
+            resolve_duel_outcome(2, 60.0, 2, 60.0), ('draw', 0.5)
+        )
+
+
+class DuelEloIntegrationTests(TestCase):
+    """Completing a duel applies Elo to both users' study_core profiles."""
+
+    def setUp(self):
+        self.client = APIClient()
+
+    def _as(self, user):
+        self.client.force_authenticate(user=user)
+        return self.client
+
+    def _completed_session(self, user, doc, answers):
+        session = TestSession.objects.create(
+            user=user, document=doc, start_elo=1200.0, is_completed=True
+        )
+        questions = list(doc.questions.all())
+        for i, (sel, correct, secs) in enumerate(answers):
+            SessionResponse.objects.create(
+                session=session, question=questions[i],
+                selected_index=sel, is_correct=correct, time_taken_sec=secs,
+            )
+        return session
+
+    def _setup(self):
+        alice = make_user('alice')
+        bob = make_user('bob')
+        make_friends(alice, bob)
+        doc = Document.objects.create(user=alice, filename='quiz.pdf', raw_text='x')
+        for i in range(3):
+            Question.objects.create(
+                document=doc, question_text=f'Q{i}',
+                options=['A', 'B', 'C', 'D'], correct_index=0,
+            )
+        return alice, bob, doc
+
+    def _create_duel(self, challenger, challenged, doc, answers):
+        session = self._completed_session(challenger, doc, answers)
+        res = self._as(challenger).post('/api/challenges/create/', {
+            'session_id': str(session.id),
+            'challenged_user_id': challenged.pk,
+        })
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED, res.data)
+        return res.data['id']
+
+    def _questions_for(self, user, pk):
+        data = self._as(user).get(f'/api/challenges/{pk}/questions/').data
+        return data['questions']
+
+    def test_win_updates_both_profiles(self):
+        alice, bob, doc = self._setup()
+        alice.study_profile.elo_rating = 1300
+        bob.study_profile.elo_rating = 1400
+        alice.study_profile.save(); bob.study_profile.save()
+
+        # Alice (challenger) scores 2/3 in 40s
+        pk = self._create_duel(
+            alice, bob, doc,
+            ((0, True, 10.0), (0, True, 10.0), (1, False, 20.0)),
+        )
+        # Bob answers every question, 3/3 in 15s → wins
+        qs = self._questions_for(bob, pk)
+        res = self._as(bob).post(f'/api/challenges/{pk}/submit/', {
+            'answers': [
+                {'question_id': q['id'], 'selected_index': 0, 'time_taken_sec': 5.0}
+                for q in qs
+            ],
+        }, format='json')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data['verdict'], 'won')
+
+        # Expected: E(1400 vs 1300) ≈ 0.6401, provisional K=40 → +14.4 / −14.4
+        alice.refresh_from_db(); bob.refresh_from_db()
+        self.assertAlmostEqual(bob.study_profile.elo_rating, 1414.4, delta=0.2)
+        self.assertAlmostEqual(alice.study_profile.elo_rating, 1285.6, delta=0.2)
+        self.assertAlmostEqual(res.data['elo_change'], 14.4, delta=0.2)
+        self.assertAlmostEqual(
+            res.data['challenger_elo_change'], -14.4, delta=0.2
+        )
+        # Both now have one duel played
+        self.assertEqual(duels_played(alice), 1)
+        self.assertEqual(duels_played(bob), 1)
+
+    def test_draw_within_one_second(self):
+        alice, bob, doc = self._setup()
+        alice.study_profile.elo_rating = 1500
+        bob.study_profile.elo_rating = 1200
+        alice.study_profile.save(); bob.study_profile.save()
+
+        # Alice 2/3 in exactly 60.0s
+        pk = self._create_duel(
+            alice, bob, doc,
+            ((0, True, 20.0), (0, True, 20.0), (1, False, 20.0)),
+        )
+        # Bob ties 2/3 but finishes in 60.4s → within 1s → draw
+        qs = self._questions_for(bob, pk)
+        answers = [
+            {'question_id': qs[0]['id'], 'selected_index': 0, 'time_taken_sec': 20.1},
+            {'question_id': qs[1]['id'], 'selected_index': 1, 'time_taken_sec': 20.1},
+            {'question_id': qs[2]['id'], 'selected_index': 0, 'time_taken_sec': 20.2},
+        ]
+        res = self._as(bob).post(f'/api/challenges/{pk}/submit/', {
+            'answers': answers,
+        }, format='json')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data['verdict'], 'draw')
+        self.assertIsNone(res.data['winner_username'])
+        challenge = QuizChallenge.objects.get(pk=pk)
+        self.assertIsNone(challenge.winner)
+
+        # E(1500 vs 1200) ≈ 0.849, draw S=0.5 → favourite sheds ~14, underdog gains ~14
+        alice.refresh_from_db(); bob.refresh_from_db()
+        self.assertAlmostEqual(alice.study_profile.elo_rating, 1486.0, delta=0.2)
+        self.assertAlmostEqual(bob.study_profile.elo_rating, 1214.0, delta=0.2)
+
+    def test_time_gap_over_one_second_not_a_draw(self):
+        alice, bob, doc = self._setup()
+        # Alice 2/3 in 60.0s
+        pk = self._create_duel(
+            alice, bob, doc,
+            ((0, True, 20.0), (0, True, 20.0), (1, False, 20.0)),
+        )
+        # Bob ties 2/3 in 55s (gap 5s ≥ 1s) → Bob wins the tie-break
+        qs = self._questions_for(bob, pk)
+        answers = [
+            {'question_id': qs[0]['id'], 'selected_index': 0, 'time_taken_sec': 19.0},
+            {'question_id': qs[1]['id'], 'selected_index': 1, 'time_taken_sec': 18.0},
+            {'question_id': qs[2]['id'], 'selected_index': 0, 'time_taken_sec': 18.0},
+        ]
+        res = self._as(bob).post(f'/api/challenges/{pk}/submit/', {
+            'answers': answers,
+        }, format='json')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data['verdict'], 'won')
+        self.assertEqual(res.data['winner_username'], 'bob')
+        self.assertGreater(res.data['elo_change'], 0)
+
+    def test_k_factor_uses_duel_history(self):
+        alice, bob, doc = self._setup()
+        carol = make_user('carol')
+
+        # Alice already has 19 completed duels; this one makes 20 → K drops to 20.
+        for _ in range(19):
+            QuizChallenge.objects.create(
+                challenger=alice, challenged_user=carol,
+                status=QuizChallenge.Status.COMPLETED,
+                challenger_score=0, challenged_score=0,
+                expires_at=timezone.now() + timedelta(hours=1),
+            )
+        self.assertEqual(duels_played(alice), 19)
+        self.assertEqual(duels_played(bob), 0)
+
+        pk = self._create_duel(
+            alice, bob, doc,
+            ((0, True, 20.0), (0, True, 20.0), (1, False, 20.0)),
+        )
+        qs = self._questions_for(bob, pk)
+        res = self._as(bob).post(f'/api/challenges/{pk}/submit/', {
+            'answers': [
+                {'question_id': q['id'], 'selected_index': 0, 'time_taken_sec': 5.0}
+                for q in qs
+            ],
+        }, format='json')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+        # Both at 1200 → E=0.5. Alice (K=20) loses 10, Bob (K=40, provisional) wins 20.
+        alice.refresh_from_db(); bob.refresh_from_db()
+        self.assertAlmostEqual(alice.study_profile.elo_rating, 1190.0, delta=0.2)
+        self.assertAlmostEqual(bob.study_profile.elo_rating, 1220.0, delta=0.2)
+        self.assertEqual(duels_played(alice), 20)
+        self.assertEqual(duels_played(bob), 1)

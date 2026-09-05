@@ -585,11 +585,17 @@ class UserProfileView(APIView):
 from django.utils import timezone
 from django.db import transaction
 from django.db import IntegrityError
-from .models import DailyQuiz, DailyQuestion, DailyQuizSession, UserProfile
+from .models import (
+    DailyQuiz, DailyQuestion, DailyQuizSession,
+    DailyQuizAnswer, UserProfile,
+)
 from .services.daily_quiz_service import (
     ensure_daily_quiz_for_date,
     questions_for_user,
     apply_quiz_completion,
+    record_daily_quiz_answer,
+    recorded_answers_for_user,
+    QuizAnswerConflict,
 )
 
 
@@ -702,8 +708,98 @@ class DailyQuizTodayView(APIView):
             result['user_review'] = review
         else:
             result['user_completed'] = False
+            # Resume support: answers already locked in this run (page refresh
+            # mid-quiz) — each entry carries the revealed outcome so the client
+            # can restore reviewed state without re-asking.
+            result['checked_answers'] = [
+                {
+                    'question_id': str(a.question_id),
+                    'selected_index': a.selected_index,
+                    'is_correct': a.is_correct,
+                    'correct_index': a.question.correct_index,
+                    'explanation': a.question.explanation,
+                    'category': a.question.category,
+                    'difficulty_tier': a.question.difficulty_tier,
+                }
+                for a in recorded_answers_for_user(quiz, user)
+            ]
 
         return Response(result)
+
+
+class DailyQuizCheckView(APIView):
+    """
+    POST /api/v2/daily-quiz/check/
+
+    Grades and LOCKS a single answer during a daily-quiz run. Returns the
+    outcome (is_correct + correct_index + explanation) immediately so the UI
+    can show per-question review before advancing. Because the server records
+    the answer in the same request, the user cannot see the correct answer and
+    then change their selection — each question has exactly one attempt.
+    Body: { question_id: str, selected_index: int(0-3) }
+    """
+
+    def post(self, request):
+        user = _get_user(request)
+        profile = _get_or_create_profile(user)
+
+        try:
+            quiz = _ensure_today_quiz()
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to load quiz: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        if DailyQuizSession.objects.filter(user=user, quiz=quiz).exists():
+            return Response(
+                {'error': 'You have already completed today\'s quiz.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        question_id = str(request.data.get('question_id', '')).strip()
+        try:
+            selected_index = int(request.data.get('selected_index', -1))
+        except (TypeError, ValueError):
+            selected_index = -1
+
+        if not question_id or selected_index not in {0, 1, 2, 3}:
+            return Response(
+                {'error': 'question_id and selected_index (0-3) are required'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Only questions actually served to this user can be answered (5
+        # universal CA + the 5 GK questions matching their skill tier).
+        served = questions_for_user(quiz, profile.gk_skill_tier)
+        question = next(
+            (q for q in served if str(q.id) == question_id), None
+        )
+        if question is None:
+            return Response(
+                {'error': 'Question is not part of today\'s quiz.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            answer = record_daily_quiz_answer(
+                quiz, user, question, selected_index
+            )
+        except QuizAnswerConflict as exc:
+            return Response(
+                {'error': str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response({
+            'question_id': question_id,
+            'selected_index': answer.selected_index,
+            'is_correct': answer.is_correct,
+            'correct_index': question.correct_index,
+            'explanation': question.explanation,
+            'category': question.category,
+            'difficulty_tier': question.difficulty_tier,
+        }, status=status.HTTP_201_CREATED)
 
 
 class DailyQuizSubmitView(APIView):
@@ -757,28 +853,52 @@ class DailyQuizSubmitView(APIView):
         gk_correct = 0
         processed_answers = []
 
-        for ans in answers_data:
-            q_id = str(ans.get('question_id', ''))
-            try:
-                selected = int(ans.get('selected_index', -1))
-            except (TypeError, ValueError):
-                selected = -1
+        # New flow: answers were locked one-by-one via /daily-quiz/check/, so
+        # grade exclusively from the recorded rows (the payload carries no
+        # authority and is ignored). Locked rows make the run immutable —
+        # nothing can be changed after the correct answer was revealed.
+        recorded = recorded_answers_for_user(quiz, user)
+        if recorded:
+            for answer in recorded:
+                q = answer.question
+                if str(q.id) not in questions:
+                    continue  # tier/category drift guard
+                is_correct = answer.is_correct
+                if is_correct:
+                    score += 1
+                    if q.category == DailyQuestion.Category.GK:
+                        gk_correct += 1
 
-            q = questions.get(q_id)
-            if q is None or selected not in {0, 1, 2, 3}:
-                continue  # unknown question or invalid option → ignore
+                processed_answers.append({
+                    'question_id': str(q.id),
+                    'selected_index': answer.selected_index,
+                    'is_correct': is_correct,
+                })
+        else:
+            # Legacy fallback: grade from the submitted payload (older clients
+            # that answer the whole quiz without per-question checks).
+            for ans in answers_data:
+                q_id = str(ans.get('question_id', ''))
+                try:
+                    selected = int(ans.get('selected_index', -1))
+                except (TypeError, ValueError):
+                    selected = -1
 
-            is_correct = (selected == q.correct_index)
-            if is_correct:
-                score += 1
-                if q.category == DailyQuestion.Category.GK:
-                    gk_correct += 1
+                q = questions.get(q_id)
+                if q is None or selected not in {0, 1, 2, 3}:
+                    continue  # unknown question or invalid option → ignore
 
-            processed_answers.append({
-                'question_id': q_id,
-                'selected_index': selected,
-                'is_correct': is_correct,
-            })
+                is_correct = (selected == q.correct_index)
+                if is_correct:
+                    score += 1
+                    if q.category == DailyQuestion.Category.GK:
+                        gk_correct += 1
+
+                processed_answers.append({
+                    'question_id': q_id,
+                    'selected_index': selected,
+                    'is_correct': is_correct,
+                })
 
         today = timezone.localdate()
 

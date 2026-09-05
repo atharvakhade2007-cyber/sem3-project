@@ -18,6 +18,10 @@ from .serializers import (
     ChallengeCreateSerializer,
     ChallengeSubmitSerializer,
 )
+from .services.rating_engine import (
+    apply_duel_elo_ratings,
+    resolve_duel_outcome,
+)
 
 # Pending duels expire after this long (default 1 hour — matches the product
 # decision of "30 min – 1 hr" for a friend to respond).
@@ -409,30 +413,58 @@ class ChallengeSubmitView(APIView):
                 'explanation': '',
             })
 
-        # Winner: higher score; ties broken by faster total time.
+        # Winner resolution shared with the rating engine so the displayed
+        # verdict always matches the Elo update: higher score wins; equal
+        # scores → faster total time wins; equal scores with total times within
+        # 1 second of each other score as a draw.
         challenged_time = round(total_time, 2)
-        if score > challenge.challenger_score:
+        side, _ = resolve_duel_outcome(
+            challenge.challenger_score,
+            challenge.challenger_time_seconds,
+            score,
+            challenged_time,
+        )
+        if side == 'draw':
+            winner = None
+        elif side == 'challenged':
             winner = me
-        elif score < challenge.challenger_score:
-            winner = challenge.challenger
         else:
-            if challenged_time < challenge.challenger_time_seconds:
-                winner = me
-            elif challenge.challenger_time_seconds < challenged_time:
-                winner = challenge.challenger
-            else:
-                winner = None
+            winner = challenge.challenger
 
-        challenge.challenged_score = score
-        challenge.challenged_time_seconds = challenged_time
-        challenge.status = QuizChallenge.Status.COMPLETED
-        challenge.completed_at = timezone.now()
-        if winner is not None:
-            challenge.winner = winner
-        challenge.save(update_fields=[
-            'challenged_score', 'challenged_time_seconds', 'status',
-            'completed_at', 'winner',
-        ])
+        try:
+            with transaction.atomic():
+                # Lock the challenge row so two concurrent submissions of the
+                # same duel serialise — the loser of the race re-reads the
+                # completed state and bails out before any rating is applied.
+                locked = QuizChallenge.objects.select_for_update().get(pk=challenge.pk)
+                if (
+                    locked.status != QuizChallenge.Status.PENDING
+                    or locked.challenged_score is not None
+                ):
+                    return Response(
+                        {'error': 'This duel is already finished.'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                locked.challenged_score = score
+                locked.challenged_time_seconds = challenged_time
+                locked.status = QuizChallenge.Status.COMPLETED
+                locked.completed_at = timezone.now()
+                locked.winner = winner  # None → draw
+                locked.save(update_fields=[
+                    'challenged_score', 'challenged_time_seconds', 'status',
+                    'completed_at', 'winner',
+                ])
+
+                # Update both players' Elo under the same transaction (the
+                # engine locks both UserProfile rows). Exactly-once is
+                # guaranteed by the challenge-row lock above.
+                rating_result = apply_duel_elo_ratings(locked)
+        except QuizChallenge.DoesNotExist:
+            return Response(
+                {'error': 'This duel is already finished.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         if winner is None:
             verdict = 'draw'
@@ -451,6 +483,11 @@ class ChallengeSubmitView(APIView):
             'challenged_score': score,
             'challenger_time_seconds': challenge.challenger_time_seconds,
             'challenged_time_seconds': challenged_time,
-            'winner_username': challenge.winner.username if challenge.winner else None,
+            'winner_username': winner.username if winner else None,
             'review': review,
+            # ── Elo outcome (from the submitting user's perspective) ──
+            'elo_after': rating_result['challenged']['elo_after'],
+            'elo_change': rating_result['challenged']['elo_change'],
+            'challenger_elo_after': rating_result['challenger']['elo_after'],
+            'challenger_elo_change': rating_result['challenger']['elo_change'],
         }, status=status.HTTP_200_OK)

@@ -74,6 +74,11 @@ urlpatterns = [
         name='daily-quiz-today',
     ),
     path(
+        'daily-quiz/check/',
+        views.DailyQuizCheckView.as_view(),
+        name='daily-quiz-check',
+    ),
+    path(
         'daily-quiz/submit/',
         views.DailyQuizSubmitView.as_view(),
         name='daily-quiz-submit',

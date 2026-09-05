@@ -112,6 +112,13 @@ export async function fetchDailyQuiz() {
   return apiCallV2('/daily-quiz/today/');
 }
 
+export async function checkDailyQuizAnswer(questionId, selectedIndex) {
+  return apiCallV2('/daily-quiz/check/', 'POST', {
+    question_id: questionId,
+    selected_index: selectedIndex,
+  });
+}
+
 export async function submitDailyQuiz(answers, totalTimeSec) {
   return apiCallV2('/daily-quiz/submit/', 'POST', {
     answers,
