@@ -99,7 +99,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'aimldb', 
         'USER': 'postgres',
-        'PASSWORD': '1234', # <-- Check this line
+        'PASSWORD': 'root', # <-- Check this line
         'HOST': 'localhost',
         'PORT': '5432',
     }

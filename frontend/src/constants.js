@@ -17,16 +17,6 @@ export const TIER_LABELS = {
   hard: 'Advanced',
 };
 
-export const LEVEL_LABELS = {
-  easy: 'Lvl 2 Apprentice',
-  medium: 'Lvl 4 Scholar',
-  hard: 'Lvl 7 Master',
-};
-
-export function levelLabel(tier) {
-  return LEVEL_LABELS[tier] || 'Lvl 4 Scholar';
-}
-
 // User level bands on the 0-based Elo scale (new users start at 0).
 export const ELO_LEVELS = [
   { min: 0, label: 'Beginner', color: '#10b981' },

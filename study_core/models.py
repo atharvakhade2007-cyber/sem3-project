@@ -126,16 +126,6 @@ class Question(models.Model):
     times_served = models.IntegerField(default=0)
     times_correct = models.IntegerField(default=0)
 
-    @property
-    def difficulty_label(self) -> str:
-        """Derived easy/medium/hard from the Elo difficulty rating.
-
-        Kept as a property (not a DB column) so the serializers and review
-        payloads that expose `difficulty_label` work without a migration.
-        """
-        from study_core.services.adaptive_engine import AdaptiveEloEngine
-        return AdaptiveEloEngine.get_difficulty_label(self.difficulty_rating)
-
     def __str__(self):
         return f"Q: {self.question_text[:60]}..."
 

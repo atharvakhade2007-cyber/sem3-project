@@ -22,7 +22,6 @@ from .serializers import (
 )
 from .services.adaptive_engine import AdaptiveEloEngine
 from .services import llm_service
-from .services.student_features import initial_seed_elo
 
 from pages.utils.pdf_parser import extract_text_from_pdf
 
@@ -470,6 +469,37 @@ class TestCompleteView(APIView):
 # ═══════════════════════════════════════════════
 
 
+class DocumentListView(APIView):
+    """GET /api/documents/ — List user's uploaded documents."""
+
+    def get(self, request):
+        user = _get_user(request)
+        docs = Document.objects.filter(user=user).order_by('-created_at')
+        return Response({
+            'documents': [
+                {
+                    'id': str(doc.id),
+                    'filename': doc.filename,
+                    'created_at': doc.created_at.isoformat(),
+                    'question_count': doc.questions.count(),
+                    'has_summary': bool(doc.summary_data),
+                    'summary_data': doc.summary_data,
+                }
+                for doc in docs
+            ]
+        })
+
+
+class DocumentDeleteView(APIView):
+    """DELETE /api/documents/<uuid>/ — Delete a document."""
+
+    def delete(self, request, doc_id):
+        user = _get_user(request)
+        doc = get_object_or_404(Document, id=doc_id, user=user)
+        doc.delete()
+        return Response({'status': 'deleted'}, status=status.HTTP_204_NO_CONTENT)
+
+
 class DocumentShareView(APIView):
     """POST /api/documents/<uuid>/share/ — Create SharedChallenge, return shareable link."""
 
@@ -568,10 +598,6 @@ class ChallengeStartView(APIView):
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
 
-        # ML: predict the student's INITIAL level to seed the first question's
-        # difficulty (same behaviour as the solo test flow).
-        seed_elo, ml_prediction = initial_seed_elo(user)
-
         # Create session linked to challenge
         session = TestSession.objects.create(
             user=user,
@@ -580,9 +606,9 @@ class ChallengeStartView(APIView):
             start_elo=profile.elo_rating,
         )
 
-        # Select first question (seeded by the ML-predicted level)
+        # Select first question
         all_questions = list(questions.values('id', 'difficulty_rating'))
-        selected = AdaptiveEloEngine.select_next_question(seed_elo, all_questions)
+        selected = AdaptiveEloEngine.select_next_question(profile.elo_rating, all_questions)
 
         if not selected:
             return Response(
@@ -597,8 +623,6 @@ class ChallengeStartView(APIView):
             'challenge_id': str(challenge.id),
             'document_id': str(doc.id),
             'start_elo': profile.elo_rating,
-            'predicted_level': ml_prediction.get('predicted_level'),
-            'predicted_level_probabilities': ml_prediction.get('probabilities'),
             'question': QuestionBriefSerializer(question).data,
             'total_questions_available': questions.count(),
         }, status=status.HTTP_201_CREATED)
