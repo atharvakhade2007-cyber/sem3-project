@@ -22,6 +22,7 @@ from .serializers import (
 )
 from .services.adaptive_engine import AdaptiveEloEngine
 from .services import llm_service
+from .services.student_features import initial_seed_elo
 
 from pages.utils.pdf_parser import extract_text_from_pdf
 
@@ -222,6 +223,13 @@ class TestStartView(APIView):
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
 
+        # ML: predict the student's INITIAL level to seed the first question's
+        # difficulty. After the quiz starts, the existing Elo/IRT/adaptive
+        # engine takes over entirely — this prediction never locks difficulty
+        # and never overrides real-time updates. Falls back to the user's
+        # stored Elo when the model is unavailable.
+        seed_elo, ml_prediction = initial_seed_elo(user)
+
         # Create session
         session = TestSession.objects.create(
             user=user,
@@ -229,9 +237,9 @@ class TestStartView(APIView):
             start_elo=profile.elo_rating,
         )
 
-        # Select optimal first question
+        # Select optimal first question (seeded by the ML-predicted level)
         all_questions = list(questions.values('id', 'difficulty_rating'))
-        selected = AdaptiveEloEngine.select_next_question(profile.elo_rating, all_questions)
+        selected = AdaptiveEloEngine.select_next_question(seed_elo, all_questions)
 
         if not selected:
             return Response(
@@ -245,6 +253,8 @@ class TestStartView(APIView):
             'session_id': str(session.id),
             'document_id': str(doc.id),
             'start_elo': profile.elo_rating,
+            'predicted_level': ml_prediction.get('predicted_level'),
+            'predicted_level_probabilities': ml_prediction.get('probabilities'),
             'question': QuestionBriefSerializer(question).data,
             'total_questions_available': questions.count(),
         }, status=status.HTTP_201_CREATED)
@@ -497,6 +507,10 @@ class ChallengeStartView(APIView):
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
 
+        # ML: predict the student's INITIAL level to seed the first question's
+        # difficulty (same behaviour as the solo test flow).
+        seed_elo, ml_prediction = initial_seed_elo(user)
+
         # Create session linked to challenge
         session = TestSession.objects.create(
             user=user,
@@ -505,9 +519,9 @@ class ChallengeStartView(APIView):
             start_elo=profile.elo_rating,
         )
 
-        # Select first question
+        # Select first question (seeded by the ML-predicted level)
         all_questions = list(questions.values('id', 'difficulty_rating'))
-        selected = AdaptiveEloEngine.select_next_question(profile.elo_rating, all_questions)
+        selected = AdaptiveEloEngine.select_next_question(seed_elo, all_questions)
 
         if not selected:
             return Response(
@@ -522,6 +536,8 @@ class ChallengeStartView(APIView):
             'challenge_id': str(challenge.id),
             'document_id': str(doc.id),
             'start_elo': profile.elo_rating,
+            'predicted_level': ml_prediction.get('predicted_level'),
+            'predicted_level_probabilities': ml_prediction.get('probabilities'),
             'question': QuestionBriefSerializer(question).data,
             'total_questions_available': questions.count(),
         }, status=status.HTTP_201_CREATED)
