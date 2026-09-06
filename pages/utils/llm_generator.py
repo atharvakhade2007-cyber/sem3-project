@@ -8,7 +8,7 @@ load_dotenv()
 
 
 def _get_gemini_api_key(api_key: Optional[str] = None) -> str:
-    DEFAULT_API_KEY = "AQ.Ab8RN6KWR5JDKet3qlgLjdhIrZQL-uZDZHFOc6U_zpv3mQJxzA"
+    DEFAULT_API_KEY = "AQ.Ab8RN6LmSDAUESHek1Tw1M_m1x_Aj2abRy3eMtqWqt1COKnNRA"
     key = api_key or os.environ.get("GEMINI_API_KEY") or DEFAULT_API_KEY
     if not key or not key.strip():
         raise ValueError(

@@ -235,10 +235,19 @@ def ensure_daily_quiz_for_date(
     target_date: date,
     api_key: Optional[str] = None,
 ) -> DailyQuiz:
-    """Return the quiz for `target_date`, generating + persisting it if missing."""
+    """Return the quiz for `target_date`, generating + persisting it if missing.
+
+    A stored quiz with fewer than 20 questions is the result of a partially
+    failed earlier generation (e.g. an LLM rate limit mid-run). Such broken
+    quizzes are deleted and regenerated so users never see a truncated quiz.
+    """
     existing = DailyQuiz.objects.filter(date=target_date).first()
     if existing is not None:
-        return existing
+        if existing.questions.count() < 20:
+            # Partial generation — discard and rebuild.
+            existing.delete()
+        else:
+            return existing
     return create_daily_quiz_for_date(target_date, api_key=api_key)
 
 

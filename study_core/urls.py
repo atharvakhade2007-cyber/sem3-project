@@ -66,7 +66,6 @@ urlpatterns = [
         views.UserProfileView.as_view(),
         name='user-profile',
     ),
-
     # ── Daily GK Quiz ──
     path(
         'daily-quiz/today/',

@@ -191,10 +191,12 @@ export async function fetchChallengeQuestions(challengeId) {
 
 export async function submitChallenge(challengeId, answers) {
   return apiCall(`/challenges/${challengeId}/submit/`, 'POST', { answers });
-}
-
-// ─── Friend-scoped Leaderboard ─────────────────────
-
+}// ─── Friend-scoped Leaderboard ─────────────────────
 export async function fetchFriendLeaderboard(metric = 'all_time') {
   return apiCall(`/leaderboard/friends/?metric=${metric}`);
+}
+
+// ─── Student Analytics (study_core) ─────────────────
+export async function fetchAnalytics() {
+  return apiCall('/user/analytics/', 'GET');
 }

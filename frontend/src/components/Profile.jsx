@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { updateProfile, changePassword } from '../api';
+import { updateProfile, changePassword, fetchAnalytics } from '../api';
 import { AVATARS, TIER_LABELS, eloLevelName } from '../constants';
+import StudentAnalyticsDashboard from './StudentAnalyticsDashboard';
 
 const TABS = [
   { key: 'overview', label: '📊 Overview' },
+  { key: 'analytics', label: '📈 Analytics' },
   { key: 'edit', label: '✏️ Edit Details' },
   { key: 'security', label: '🔒 Security' },
 ];
@@ -67,6 +69,8 @@ export default function Profile() {
   const { user, refreshUser } = useAuth();
   const [tab, setTab] = useState('overview');
   const [alert, setAlert] = useState(null); // {type, text}
+  const [analytics, setAnalytics] = useState(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const [edit, setEdit] = useState({
@@ -92,6 +96,12 @@ export default function Profile() {
     }
   }, [user]);
 
+  useEffect(() => {
+    if (tab === 'analytics' && !analytics) {
+      loadAnalytics();
+    }
+  }, [tab]);
+
   if (!user) return null;
 
   const saveDetails = async e => {
@@ -113,6 +123,26 @@ export default function Profile() {
       setBusy(false);
     }
   };
+
+  const loadAnalytics = useCallback(async () => {
+    setAnalyticsLoading(true);
+    setAlert(null);
+    try {
+      const data = await fetchAnalytics();
+      setAnalytics(data);
+    } catch (err) {
+      console.error('Analytics load error:', err);
+      setAlert({ type: 'error', text: err.message || 'Failed to load analytics.' });
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (tab === 'analytics' && !analytics) {
+      loadAnalytics();
+    }
+  }, [tab]);
 
   const savePassword = async e => {
     e.preventDefault();
@@ -170,7 +200,7 @@ export default function Profile() {
         {TABS.map(t => {
           const active = tab === t.key;
           return (
-            <button key={t.key} onClick={() => { setTab(t.key); setAlert(null); }} style={{
+            <button key={t.key} onClick={() => { setTab(t.key); setAlert(null); if (t.key === 'analytics' && !analytics) loadAnalytics(); }} style={{
               background: active ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : 'var(--card-bg)',
               border: active ? 'none' : '1px solid var(--card-border)',
               borderRadius: 10, padding: '0.55rem 1.1rem',
@@ -184,6 +214,15 @@ export default function Profile() {
       </div>
 
       {alert && <Alert type={alert.type}>{alert.text}</Alert>}
+
+      {/* ── Analytics ── */}
+      {tab === 'analytics' && (
+        <StudentAnalyticsDashboard
+          analytics={analytics}
+          loading={analyticsLoading}
+          onRefresh={loadAnalytics}
+        />
+      )}
 
       {/* ── Overview ── */}
       {tab === 'overview' && (
