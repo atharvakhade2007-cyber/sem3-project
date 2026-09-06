@@ -155,7 +155,15 @@ STUDY MATERIAL TEXT:
 
     # Validate, normalize, and enforce difficulty distribution.
     normalized: List[Dict[str, Any]] = []
+    seen_texts: set = set()
     for i, q in enumerate(parsed):
+        # Drop verbatim duplicate questions returned by the LLM so the bank
+        # never contains the same question twice.
+        q_key = re.sub(r'[^a-z0-9]+', '', str(q.get('question', '')).lower())
+        if not q_key or q_key in seen_texts:
+            continue
+        seen_texts.add(q_key)
+
         required = {"question", "options", "correct_index", "explanation"}
         missing = required - set(q.keys())
         if missing:

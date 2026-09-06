@@ -316,8 +316,10 @@ class TestStartView(APIView):
             state.save()
 
         # Select the first question using the persona sub-tier logic.
+        # dedupe_bank guards against duplicate rows left in banks generated
+        # before LLM-side dedup was enforced.
         question, sub_tier, reason = persona_engine.select_first_question(
-            session, state, list(questions)
+            session, state, persona_engine.dedupe_bank(list(questions))
         )
 
         if not question:
@@ -441,8 +443,11 @@ class TestSubmitAnswerView(APIView):
 
         if not finished:
             # Select next question from the remaining pool using the persona
-            # sub-tier routing.
-            all_questions = list(Question.objects.filter(document=session.document))
+            # sub-tier routing. dedupe_bank keeps legacy duplicate rows out
+            # of the candidate pool.
+            all_questions = persona_engine.dedupe_bank(
+                list(Question.objects.filter(document=session.document))
+            )
             next_q, next_sub_tier, reason = persona_engine.select_next_question_for_session(
                 session, state, all_questions, answered_ids
             )

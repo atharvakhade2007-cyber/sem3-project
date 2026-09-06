@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import math
+import re
 from typing import Any, Dict, List, Optional, Tuple
 
 from django.db import transaction
@@ -263,7 +264,7 @@ def select_next_question_for_session(
     """
     if state is None:
         sub_tier = initial_sub_tier_for_persona(session.persona_tier)
-        answered = set(answered_ids or [])
+        answered = {str(a) for a in (answered_ids or [])}
         candidates = [q for q in questions if str(q.id) not in answered]
         if not candidates:
             return None, sub_tier, 'no_questions'
@@ -278,7 +279,11 @@ def select_next_question_for_session(
                 return q, sub_tier, 'initial'
         return candidates[0], sub_tier, 'initial'
 
-    served = set(state.served_question_ids or [])
+    # A question counts as served if it was tracked in the session state OR
+    # already answered (recorded in SessionResponse). This guarantees the same
+    # question is never served twice within a session.
+    answered = {str(a) for a in (answered_ids or [])}
+    served = set(state.served_question_ids or []) | answered
     available = [q for q in questions if str(q.id) not in served]
     if not available:
         return None, state.active_sub_tier, 'no_questions'
@@ -303,8 +308,45 @@ def select_next_question_for_session(
 
     for q in candidates:
         if str(q.id) == str(best['id']):
+            _record_served(state, q)
             return q, sub_tier, 'held'
-    return candidates[0], sub_tier, 'held'
+    chosen = candidates[0]
+    _record_served(state, chosen)
+    return chosen, sub_tier, 'held'
+
+
+def _record_served(state: Optional[QuizSessionState], question: Question) -> None:
+    """Persist the chosen question id so it can never be served again."""
+    if state is None:
+        return
+    served = list(state.served_question_ids or [])
+    sid = str(question.id)
+    if sid not in served:
+        served.append(sid)
+        state.served_question_ids = served
+        state.save(update_fields=['served_question_ids'])
+
+
+def normalize_question_key(text: str) -> str:
+    """Canonical key for duplicate detection (letters/digits only)."""
+    return re.sub(r'[^a-z0-9]+', '', (text or '').lower())
+
+
+def dedupe_bank(questions: List[Question]) -> List[Question]:
+    """Remove duplicate questions from a bank without deleting DB rows.
+
+    Banks generated before strict LLM-side dedup may contain repeated
+    questions; a session must only ever see each question once.
+    """
+    seen = set()
+    unique = []
+    for q in questions:
+        key = normalize_question_key(q.question_text)
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        unique.append(q)
+    return unique
 
 
 def update_session_state_after_answer(
