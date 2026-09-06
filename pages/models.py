@@ -19,16 +19,27 @@ class UploadedPDF(models.Model):
 
 
 class UserProfile(models.Model):
-    """Extends Django User with Elo rating and stats."""
+    """Extends Django User with Elo rating, ML persona level, and stats."""
+    STUDENT_LEVEL_CHOICES = [
+        ('Beginner', 'Beginner'),
+        ('Intermediate', 'Intermediate'),
+        ('Advanced', 'Advanced'),
+    ]
+
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-    # 0-based Elo scale: every new learner starts at 0.
     elo_rating = models.FloatField(default=0.0)
+    student_level = models.CharField(
+        max_length=20,
+        choices=STUDENT_LEVEL_CHOICES,
+        default='Beginner'
+    )
+    total_quizzes_completed = models.IntegerField(default=0)
     total_questions_answered = models.IntegerField(default=0)
     total_correct = models.IntegerField(default=0)
     streak = models.IntegerField(default=0)
 
     def __str__(self):
-        return f"{self.user.username}'s Profile (Elo: {self.elo_rating})"
+        return f"{self.user.username}'s Profile (Level: {self.student_level}, Elo: {self.elo_rating})"
 
 
 @receiver(post_save, sender=User)
@@ -42,6 +53,12 @@ def create_or_update_user_profile(sender, instance, created, **kwargs):
 
 class Question(models.Model):
     """A multiple-choice question generated from a document."""
+    DIFFICULTY_CHOICES = [
+        ('easy', 'Easy'),
+        ('medium', 'Medium'),
+        ('hard', 'Hard'),
+    ]
+
     document = models.ForeignKey(
         UploadedPDF,
         on_delete=models.CASCADE,
@@ -51,15 +68,18 @@ class Question(models.Model):
     options = models.JSONField(default=list)  # List of 4 option strings
     correct_index = models.IntegerField(default=0)  # 0-3
     explanation = models.TextField(blank=True, default='')
-    # 0-based Elo-style difficulty rating (default = neutral / unknown).
     difficulty_rating = models.FloatField(default=0.0)
-    difficulty_label = models.CharField(max_length=10, default='medium')  # easy/medium/hard
+    difficulty_label = models.CharField(
+        max_length=10,
+        choices=DIFFICULTY_CHOICES,
+        default='medium'
+    )
     times_served = models.IntegerField(default=0)
     times_correct = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Q#{self.id}: {self.question_text[:50]}..."
+        return f"Q#{self.id} [{self.difficulty_label}]: {self.question_text[:40]}..."
 
     class Meta:
         ordering = ['created_at']
@@ -104,11 +124,18 @@ class Summary(models.Model):
 
 
 class TestSession(models.Model):
-    """A test session tracking Elo progression."""
+    """A test session tracking Elo progression and micro-adaptive state."""
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='test_sessions')
     document = models.ForeignKey(UploadedPDF, on_delete=models.CASCADE, related_name='test_sessions')
-    start_elo = models.FloatField(default=0.0)  # 0-based Elo scale
+    start_elo = models.FloatField(default=0.0)
     end_elo = models.FloatField(null=True, blank=True)
+    questions_answered_count = models.IntegerField(default=0)  # <-- Resolves the 500 error constraint
+    
+    # Micro-adaptive streak & tier tracking
+    current_sub_tier = models.CharField(max_length=10, default='medium')
+    consecutive_correct = models.IntegerField(default=0)
+    consecutive_wrong = models.IntegerField(default=0)
+
     is_completed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -130,7 +157,7 @@ class SessionResponse(models.Model):
     selected_index = models.IntegerField()  # 0-3
     is_correct = models.BooleanField()
     time_taken_sec = models.FloatField(default=0.0)
-    user_elo_before = models.FloatField(default=0.0)  # 0-based Elo scale
+    user_elo_before = models.FloatField(default=0.0)
     user_elo_after = models.FloatField(default=0.0)
     answered_at = models.DateTimeField(auto_now_add=True)
 

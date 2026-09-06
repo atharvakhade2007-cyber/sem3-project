@@ -34,9 +34,36 @@ class UserProfile(models.Model):
         choices=Avatar.choices,
         default=Avatar.OWL,
     )
-    # 0-based Elo scale: every new learner starts at 0.
-    elo_rating = models.FloatField(default=0.0)
+    # Persona tier for the adaptive assessment engine (Phase 2 ML prediction).
+    # Persisted here so the quiz flow and leaderboards can render the current persona.
+    persona_tier = models.CharField(
+        max_length=20,
+        choices=[('Beginner', 'Beginner'), ('Intermediate', 'Intermediate'), ('Advanced', 'Advanced')],
+        default='Beginner',
+        db_index=True,
+    )
+    persona_predicted_at = models.DateTimeField(null=True, blank=True)
+
+    # Two-tier Elo: this assessment persona path uses a 100+ Elo scale and is
+    # clamped so Elo can never go negative. The existing daily-quiz Elo field is
+    # kept unchanged to avoid breaking that subsystem.
+    elo_rating = models.FloatField(default=100.0)
     total_questions_answered = models.IntegerField(default=0)
+
+    # Cumulative ML performance metrics for the RandomForest input vector.
+    quiz_attempts = models.IntegerField(default=0)
+    questions_attempted = models.IntegerField(default=0)
+    correct_answers = models.IntegerField(default=0)
+    wrong_answers = models.IntegerField(default=0)
+    accuracy = models.FloatField(default=0.0)
+    avg_time_per_question = models.FloatField(default=0.0)
+    easy_correct = models.IntegerField(default=0)
+    medium_correct = models.IntegerField(default=0)
+    hard_correct = models.IntegerField(default=0)
+    previous_avg_score = models.FloatField(default=0.0)
+    current_elo_rating = models.FloatField(default=100.0)
+    question_difficulty_rating = models.FloatField(default=0.0)
+    total_answered = models.IntegerField(default=0)
 
     # ── Daily Quiz gamification ──
     gk_skill_tier = models.CharField(
@@ -50,8 +77,16 @@ class UserProfile(models.Model):
     last_quiz_completed_date = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    @property
+    def total_quizzes_completed(self):
+        """Total completed quizzes (daily quiz attempts + adaptive test sessions)."""
+        return (
+            DailyQuizSession.objects.filter(user=self.user).count()
+            + TestSession.objects.filter(user=self.user, is_completed=True).count()
+        )
+
     def __str__(self):
-        return f"{self.user.username} (Elo: {self.elo_rating:.0f}, Streak: {self.current_streak})"
+        return f"{self.user.username} (Elo: {self.elo_rating:.0f}, Persona: {self.persona_tier})"
 
     @property
     def avatar_emoji(self):
@@ -69,6 +104,7 @@ class UserProfile(models.Model):
     class Meta:
         indexes = [
             models.Index(fields=['elo_rating']),
+            models.Index(fields=['persona_tier', 'elo_rating']),
             models.Index(fields=['current_streak', 'longest_streak']),
         ]
 
@@ -121,13 +157,23 @@ class Question(models.Model):
     options = models.JSONField(default=list)  # List of exactly 4 strings
     correct_index = models.IntegerField(default=0)  # 0-3
     explanation = models.TextField(blank=True, default='')
-    # 0-based Elo-style difficulty rating (default = neutral / unknown).
+    # Difficulty rating drives selection + frontend label. Questions are only
+    # tagged by difficulty, not by persona.
     difficulty_rating = models.FloatField(default=0.0)
     times_served = models.IntegerField(default=0)
     times_correct = models.IntegerField(default=0)
 
     def __str__(self):
         return f"Q: {self.question_text[:60]}..."
+
+    @property
+    def difficulty_label(self) -> str:
+        """Frontend label derived from difficulty_rating."""
+        if self.difficulty_rating < -100:
+            return 'easy'
+        elif self.difficulty_rating < 300:
+            return 'medium'
+        return 'hard'
 
     class Meta:
         ordering = ['difficulty_rating']
@@ -174,10 +220,21 @@ class TestSession(models.Model):
         blank=True,
         related_name='sessions'
     )
-    start_elo = models.FloatField(default=0.0)  # 0-based Elo scale
+    start_elo = models.FloatField(default=100.0)
     end_elo = models.FloatField(null=True, blank=True)
+    persona_tier = models.CharField(
+        max_length=20,
+        choices=[('Beginner', 'Beginner'), ('Intermediate', 'Intermediate'), ('Advanced', 'Advanced')],
+        default='Beginner',
+    )
+    requested_questions = models.IntegerField(default=0)
+    generated_questions = models.IntegerField(default=0)
     is_completed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
+
+    @property
+    def served_questions_count(self):
+        return self.responses.count()
 
     def __str__(self):
         return f"Session {self.id} ({self.user.username})"
@@ -187,6 +244,38 @@ class TestSession(models.Model):
         indexes = [
             models.Index(fields=['user']),
             models.Index(fields=['challenge', 'user']),
+        ]
+
+
+class QuizSessionState(models.Model):
+    """In-session micro-adaptive state for a PDF test session.
+
+    Tracks the active sub-tier (Easy/Medium/Hard) within the user's persona tier,
+    consecutive correct/wrong counters, and the ids of already-served questions
+    so the same question is never shown twice in one session.
+    """
+    session = models.OneToOneField(
+        TestSession,
+        on_delete=models.CASCADE,
+        related_name='adaptive_state',
+        primary_key=True,
+    )
+    active_sub_tier = models.CharField(
+        max_length=10,
+        choices=[('Easy', 'Easy'), ('Medium', 'Medium'), ('Hard', 'Hard')],
+        default='Medium',
+    )
+    consecutive_correct = models.IntegerField(default=0)
+    consecutive_wrong = models.IntegerField(default=0)
+    served_question_ids = models.JSONField(default=list)
+    is_completed = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"State({self.session_id}) sub_tier={self.active_sub_tier}"
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['active_sub_tier', 'is_completed']),
         ]
 
 
@@ -202,8 +291,20 @@ class SessionResponse(models.Model):
     selected_index = models.IntegerField()  # 0-3
     is_correct = models.BooleanField()
     time_taken_sec = models.FloatField(default=0.0)
-    user_elo_after = models.FloatField(default=0.0)  # 0-based Elo scale
+    user_elo_after = models.FloatField(default=100.0)
     question_elo_after = models.FloatField(default=0.0)
+
+    class Meta:
+        ordering = ['id']
+        indexes = [
+            models.Index(fields=['session', 'question']),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['session', 'question'],
+                name='uniq_session_question_once',
+            ),
+        ]
 
     def __str__(self):
         return f"Response in Session {self.session.id}"

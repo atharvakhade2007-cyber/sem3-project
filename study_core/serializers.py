@@ -418,6 +418,13 @@ class UploadDocumentSerializer(serializers.Serializer):
 
 class StartTestSerializer(serializers.Serializer):
     document_id = serializers.UUIDField()
+    # Optional for the PDF workspace quiz: when provided and > 0 the backend
+    # generates 2 * question_count questions for the adaptive pool and serves
+    # exactly question_count of them. When omitted, the existing all-questions
+    # pool behavior is preserved for backward compatibility.
+    question_count = serializers.IntegerField(
+        required=False, min_value=1, max_value=50, default=None
+    )
 
 
 class SubmitAnswerSerializer(serializers.Serializer):

@@ -10,6 +10,7 @@ from rest_framework.views import APIView
 from .models import (
     UserProfile, Document, Flashcard, Question,
     SharedChallenge, TestSession, SessionResponse,
+    QuizSessionState,
 )
 from .serializers import (
     DocumentSerializer, DocumentDetailSerializer,
@@ -22,6 +23,16 @@ from .serializers import (
 )
 from .services.adaptive_engine import AdaptiveEloEngine
 from .services import llm_service
+from .services import persona_engine
+from .services.persona_engine import (
+    clamp_pdf_elo,
+    finalize_session_metrics,
+    initial_sub_tier_for_persona,
+    select_first_question,
+    select_next_question_for_session,
+    update_session_state_after_answer,
+    determine_and_predict_persona,
+)
 
 from pages.utils.pdf_parser import extract_text_from_pdf
 
@@ -182,27 +193,83 @@ class DocumentFlashcardsView(APIView):
 
 
 class TestStartView(APIView):
-    """POST /api/test/start/ — Create session, select first question."""
+    """POST /api/test/start/ — Two-tier adaptive PDF quiz start.
+
+    When question_count is provided and > 0:
+      - generates exactly 2 * question_count questions for the pool,
+      - assigns/predicts the user's persona tier, and
+      - serves exactly question_count questions using the persona sub-tier
+        selection rules. Unused pool questions remain in the DB but are never
+      - shown in this session.
+
+    When question_count is omitted the existing full-pool behavior is preserved
+    for backward compatibility.
+    """
 
     def post(self, request):
         serializer = StartTestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         doc_id = serializer.validated_data['document_id']
+        requested = serializer.validated_data.get('question_count')
         user = _get_user(request)
         profile = _get_or_create_profile(user)
 
-        doc = get_object_or_404(Document, id=doc_id)
+        # Accept both study_core Document (UUID) and legacy pages UploadedPDF (int).
+        try:
+            doc = get_object_or_404(Document, id=doc_id)
+        except Exception:
+            # Fallback: try legacy pages UploadedPDF by integer id.
+            from pages.models import UploadedPDF
+            try:
+                uploaded_pdf = get_object_or_404(UploadedPDF, id=int(doc_id))
+                # Create or find a study_core Document linked to this user.
+                doc = Document.objects.filter(
+                    user=user,
+                    filename=uploaded_pdf.file.name,
+                ).first()
+                if not doc:
+                    doc = Document.objects.create(
+                        user=user,
+                        file=uploaded_pdf.file,
+                        filename=uploaded_pdf.file.name,
+                    )
+                    # Reuse raw_text if already extracted by the pages app.
+                    if uploaded_pdf.raw_text.strip():
+                        doc.raw_text = uploaded_pdf.raw_text
+                        doc.save(update_fields=['raw_text'])
+                    else:
+                        try:
+                            text = extract_text_from_pdf(doc.file.path)
+                            if text.strip():
+                                doc.raw_text = text
+                                doc.save(update_fields=['raw_text'])
+                        except Exception:
+                            pass
+            except Exception:
+                raise
 
-        # Auto-generate question bank if none exist
+        # Decide persona tier via the two-tier rules from the spec.
+        # Phase 1 (cold start): < 3 completed quizzes -> default persona.
+        # Phase 2 (macro persona): otherwise -> ML prediction.
+        persona_tier, persona_probs = persona_engine.determine_and_predict_persona(profile)
+
+        # Generate or reuse the question bank.
         questions = Question.objects.filter(document=doc)
+        generated_count = questions.count()
+
         if not questions.exists():
             try:
-                text = doc.raw_text or extract_text_from_pdf(doc.file.path)
-                if not text.strip():
+                text = doc.raw_text
+                if not text or not text.strip():
+                    text = extract_text_from_pdf(doc.file.path)
+                    doc.raw_text = text or ''
+                    doc.save(update_fields=['raw_text'])
+                if not text or not text.strip():
                     raise ValueError("Document has no extractable text.")
 
-                questions_data = llm_service.generate_question_bank(text=text)
+                target_pool_size = (2 * requested) if (requested and requested > 0) else 20
+                questions_data = llm_service.generate_question_bank(text=text, num_questions=target_pool_size)
                 question_objects = [
                     Question(
                         document=doc,
@@ -216,42 +283,73 @@ class TestStartView(APIView):
                 ]
                 Question.objects.bulk_create(question_objects)
                 questions = Question.objects.filter(document=doc)
+                generated_count = questions.count()
+            except ValueError as e:
+                # Document-level problems are client errors.
+                return Response(
+                    {'error': str(e)},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             except Exception as e:
                 return Response(
                     {'error': f'Failed to generate questions: {str(e)}'},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
 
-        # Create session
+        requested_questions = requested if (requested and requested > 0) else generated_count
+        if requested_questions > generated_count:
+            requested_questions = generated_count
+
+        # Create session + adaptive state.
         session = TestSession.objects.create(
             user=user,
             document=doc,
             start_elo=profile.elo_rating,
+            persona_tier=persona_tier,
+            requested_questions=requested_questions,
+            generated_questions=generated_count,
         )
 
-        # Select optimal first question
-        all_questions = list(questions.values('id', 'difficulty_rating'))
-        selected = AdaptiveEloEngine.select_next_question(profile.elo_rating, all_questions)
+        state, created = QuizSessionState.objects.get_or_create(session=session)
+        if created:
+            state.active_sub_tier = persona_engine.initial_sub_tier_for_persona(persona_tier)
+            state.save()
 
-        if not selected:
+        # Select the first question using the persona sub-tier logic.
+        question, sub_tier, reason = persona_engine.select_first_question(
+            session, state, list(questions)
+        )
+
+        if not question:
             return Response(
                 {'error': 'No questions available for this document'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        question = Question.objects.get(id=selected['id'])
-
         return Response({
             'session_id': str(session.id),
             'document_id': str(doc.id),
             'start_elo': profile.elo_rating,
+            'persona_tier': persona_tier,
+            'persona_probabilities': persona_probs,
+            'active_sub_tier': sub_tier,
+            'requested_questions': requested_questions,
+            'generated_questions': generated_count,
             'question': QuestionBriefSerializer(question).data,
-            'total_questions_available': questions.count(),
+            'total_questions_available': generated_count,
         }, status=status.HTTP_201_CREATED)
 
 
 class TestSubmitAnswerView(APIView):
-    """POST /api/test/submit-answer/ — Submit answer, compute Elo, return next question."""
+    """POST /api/test/submit-answer/ — Submit answer, compute Elo/IRT, apply
+
+    two-tier persona sub-tier routing, and return the next question.
+
+    The Elo/IRT math is still done by AdaptiveEloEngine; this view only adds
+    the persona sub-tier promotion/demotion and the served-question tracking
+    so the same question is never shown twice and unused pool questions stay
+    unused.
+    """
 
     def post(self, request):
         serializer = SubmitAnswerSerializer(data=request.data)
@@ -276,7 +374,7 @@ class TestSubmitAnswerView(APIView):
 
         profile = _get_or_create_profile(user)
 
-        # Calculate Elo update
+        # Clo sure close_consistent Elo/IRT math from the existing engine.
         new_user_elo, new_question_elo = AdaptiveEloEngine.calculate_elo_update(
             user_elo=profile.elo_rating,
             question_elo=question.difficulty_rating,
@@ -285,7 +383,10 @@ class TestSubmitAnswerView(APIView):
             time_taken_sec=time_taken_sec,
         )
 
-        # Record response
+        # Enforce the PDF-assessment contract: Elo cannot go below 100.
+        new_user_elo = persona_engine.clamp_pdf_elo(new_user_elo)
+
+        # Record response.
         response_obj = SessionResponse.objects.create(
             session=session,
             question=question,
@@ -296,27 +397,34 @@ class TestSubmitAnswerView(APIView):
             question_elo_after=new_question_elo,
         )
 
-        # Update question stats
+        # Update question stats.
         question.times_served += 1
         if is_correct:
             question.times_correct += 1
         question.difficulty_rating = new_question_elo
         question.save()
 
-        # Update user profile
+        # Update user profile.
         old_elo = profile.elo_rating
         profile.elo_rating = new_user_elo
         profile.total_questions_answered += 1
+        profile.current_elo_rating = persona_engine.clamp_pdf_elo(new_user_elo)
         profile.save()
 
-        # Get next question
+        # Update persona sub-tier state.
+        state = getattr(session, 'adaptive_state', None)
+        sub_tier = state.active_sub_tier if state else session.persona_tier
+        if state:
+            new_sub_tier, transition = persona_engine.update_session_state_after_answer(
+                state, is_correct
+            )
+            sub_tier = new_sub_tier
+
+        # Determine whether to serve a next question or finish.
         answered_ids = session.responses.values_list('question_id', flat=True)
-        available = list(
-            Question.objects.filter(document=session.document)
-            .exclude(id__in=answered_ids)
-            .values('id', 'difficulty_rating')
-        )
-        next_question = AdaptiveEloEngine.select_next_question(new_user_elo, available)
+        questions_to_answer = session.requested_questions
+        answered_count = session.responses.count()
+        finished = answered_count >= questions_to_answer if questions_to_answer else False
 
         result = {
             'is_correct': is_correct,
@@ -325,18 +433,30 @@ class TestSubmitAnswerView(APIView):
             'selected_index': selected_index,
             'elo_change': new_user_elo - old_elo,
             'user_elo_after': new_user_elo,
-            'question_elo_after': new_question_elo,
-            'questions_answered': session.responses.count(),
+            'question_elo_after': question.difficulty_rating,
+            'questions_answered': answered_count,
             'total_available': Question.objects.filter(document=session.document).count(),
+            'active_sub_tier': sub_tier,
         }
 
-        if next_question:
-            q = Question.objects.get(id=next_question['id'])
-            result['next_question'] = QuestionBriefSerializer(q).data
-        else:
+        if not finished:
+            # Select next question from the remaining pool using the persona
+            # sub-tier routing.
+            all_questions = list(Question.objects.filter(document=session.document))
+            next_q, next_sub_tier, reason = persona_engine.select_next_question_for_session(
+                session, state, all_questions, answered_ids
+            )
+            result['active_sub_tier'] = next_sub_tier or sub_tier
+            if next_q:
+                result['next_question'] = QuestionBriefSerializer(next_q).data
+            else:
+                finished = True
+
+        if finished:
             session.is_completed = True
             session.end_elo = new_user_elo
             session.save()
+            persona_engine.finalize_session_metrics(session, profile, session.responses.all())
             result['session_completed'] = True
 
         return Response(result)

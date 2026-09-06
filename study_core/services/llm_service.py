@@ -104,11 +104,16 @@ def generate_question_bank(
     api_key: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
-    Generate a question bank with continuous difficulty ratings.
+    Generate a difficulty-labeled question bank for the adaptive assessment engine.
 
     Returns list of dicts with keys:
     - question, options (list of 4), correct_index (0-3),
-      explanation, difficulty_label, difficulty_rating
+      explanation, difficulty_label ('easy'|'medium'|'hard'),
+      difficulty_rating (Elo-style float)
+
+    IMPORTANT: questions are tagged ONLY by difficulty, never by persona.
+    Persona targeting is handled downstream by the study_core views using the
+    user's active sub-tier and served_question_ids.
     """
     max_char_limit = 20000
     truncated_text = text[:max_char_limit]
@@ -116,6 +121,8 @@ def generate_question_bank(
     prompt = f"""You are an expert educational assessment creator specializing in adaptive testing.
 
 Generate exactly {num_questions} high-quality multiple-choice questions from the provided study text.
+These questions will later be served to students in one of three difficulty tiers.
+You must NOT try to predict student personas — you only assign a difficulty label.
 
 OUTPUT RULES (CRITICAL):
 1. Output ONLY a valid raw JSON array. No commentary, no markdown blocks.
@@ -124,14 +131,16 @@ OUTPUT RULES (CRITICAL):
    - "options": array of exactly 4 strings (the answer choices)
    - "correct_index": integer 0-3 (index of the correct answer in the options array)
    - "explanation": string (1-2 sentences explaining why the correct answer is right)
-   - "difficulty_label": string ("easy", "medium", or "hard")
+   - "difficulty_label": string — EXACTLY one of "easy", "medium", or "hard"
    - "difficulty_rating": number (Elo-style difficulty rating)
      - Easy questions: between -400 and -200
      - Medium questions: between 0 and 200
      - Hard questions: between 400 and 600
      (0-based scale: a brand-new learner is rated 0 Elo)
 
-3. Distribute questions roughly evenly: ~7 easy, ~7 medium, ~6 hard
+3. Distribute questions as evenly as possible across the three difficulties.
+   For example, for 18 questions use 6/6/6; for 20 use 7/7/6; for 24 use 8/8/8.
+   The difference between any two difficulty counts must never exceed 1.
 4. Questions should cover different concepts from the material
 5. Each question must have exactly 4 distinct options
 
@@ -144,7 +153,8 @@ STUDY MATERIAL TEXT:
     if not isinstance(parsed, list):
         raise ValueError("Expected JSON list from LLM")
 
-    # Validate and normalize
+    # Validate, normalize, and enforce difficulty distribution.
+    normalized: List[Dict[str, Any]] = []
     for i, q in enumerate(parsed):
         required = {"question", "options", "correct_index", "explanation"}
         missing = required - set(q.keys())
@@ -161,15 +171,67 @@ STUDY MATERIAL TEXT:
         label = q.get("difficulty_label", "medium").lower().strip()
         if label not in {"easy", "medium", "hard"}:
             label = "medium"
-        q["difficulty_label"] = label
 
         rating = q.get("difficulty_rating")
         if not isinstance(rating, (int, float)):
-            # Seed based on label (0-based Elo scale: new users start at 0)
             seeds = {"easy": -300.0, "medium": 100.0, "hard": 500.0}
             rating = seeds[label]
-        q["difficulty_rating"] = float(rating)
+        else:
+            rating = float(rating)
 
-        q.setdefault("explanation", "")
+        q_out: Dict[str, Any] = {
+            "question": str(q["question"]).strip(),
+            "options": [str(o).strip() for o in q["options"]],
+            "correct_index": int(idx),
+            "explanation": str(q.get("explanation", "")).strip(),
+            "difficulty_label": label,
+            "difficulty_rating": rating,
+        }
+        normalized.append(q_out)
 
-    return parsed
+    return _force_even_difficulty_distribution(normalized)
+
+
+def _force_even_difficulty_distribution(
+    questions: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """
+    Reassign difficulty_label so the final pool is as even as possible across
+    easy/medium/hard, without changing question text or correct answers.
+
+    Strategy: count current labels, compute target counts for the total pool,
+    then promote/demote the fewest questions necessary to hit the targets.
+    Ties are broken deterministically by question index for idempotency.
+    """
+    if not questions:
+        return questions
+
+    n = len(questions)
+    counts: Dict[str, int] = {"easy": 0, "medium": 0, "hard": 0}
+    for q in questions:
+        counts[q["difficulty_label"]] += 1
+
+    # Target as even as possible: base = n // 3, remainder distributed to first buckets.
+    base = n // 3
+    remainder = n % 3
+    targets: Dict[str, int] = {
+        "easy": base + (1 if remainder > 0 else 0),
+        "medium": base + (1 if remainder > 1 else 0),
+        "hard": base,
+    }
+
+    # Deterministic bucket assignment by question index to avoid random jitter.
+    order = ["easy", "medium", "hard"]
+    assignments: Dict[int, str] = {}
+    idx = 0
+    for bucket in order:
+        for _ in range(targets[bucket]):
+            assignments[idx] = bucket
+            idx += 1
+
+    for i, q in enumerate(questions):
+        q["difficulty_label"] = assignments[i]
+        seeds = {"easy": -300.0, "medium": 100.0, "hard": 500.0}
+        q["difficulty_rating"] = seeds[q["difficulty_label"]]
+
+    return questions

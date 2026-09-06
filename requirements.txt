@@ -17,3 +17,8 @@ google-generativeai==0.8.6
 # Background task automation (daily quiz cron at 00:00 IST)
 celery>=5.4,<6
 redis>=5.0
+
+# ML: initial student-level prediction (Random Forest, loaded from model.pkl)
+pandas>=2.0
+scikit-learn>=1.6
+joblib>=1.4

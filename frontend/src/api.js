@@ -90,11 +90,14 @@ export async function generateQuestionBank(docId, numQuestions = 20) {
 }
 
 export async function startTest(docId) {
-  return apiCall('/test/start/', 'POST', { document_id: docId });
+  // Use V2 endpoint (study_core) which supports UUID document IDs.
+  // The legacy V1 /api/test/start/ only handles integer UploadedPDF IDs.
+  return apiCallV2('/test/start/', 'POST', { document_id: docId, question_count: 10 });
 }
 
 export async function submitAnswer(sessionId, questionId, selectedIndex, timeTakenSec) {
-  return apiCall('/test/submit-answer/', 'POST', {
+  // Use V2 endpoint (study_core) which handles UUID session/question IDs.
+  return apiCallV2('/test/submit-answer/', 'POST', {
     session_id: sessionId,
     question_id: questionId,
     selected_index: selectedIndex,
@@ -103,7 +106,8 @@ export async function submitAnswer(sessionId, questionId, selectedIndex, timeTak
 }
 
 export async function completeTest(sessionId) {
-  return apiCall('/test/complete/', 'POST', { session_id: sessionId });
+  // Use V2 endpoint (study_core) which handles UUID session IDs.
+  return apiCallV2('/test/complete/', 'POST', { session_id: sessionId });
 }
 
 // ─── Daily Quiz APIs (v2 — study_core) ────────────
