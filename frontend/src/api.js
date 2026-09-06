@@ -89,10 +89,12 @@ export async function generateQuestionBank(docId, numQuestions = 20) {
   });
 }
 
-export async function startTest(docId) {
+export async function startTest(docId, questionCount = 10) {
   // Use V2 endpoint (study_core) which supports UUID document IDs.
   // The legacy V1 /api/test/start/ only handles integer UploadedPDF IDs.
-  return apiCallV2('/test/start/', 'POST', { document_id: docId, question_count: 10 });
+  // questionCount = how many questions the user answers; the backend still
+  // generates a 2x hidden pool for adaptive selection.
+  return apiCallV2('/test/start/', 'POST', { document_id: docId, question_count: questionCount });
 }
 
 export async function submitAnswer(sessionId, questionId, selectedIndex, timeTakenSec) {

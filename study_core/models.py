@@ -293,11 +293,16 @@ class SessionResponse(models.Model):
     time_taken_sec = models.FloatField(default=0.0)
     user_elo_after = models.FloatField(default=100.0)
     question_elo_after = models.FloatField(default=0.0)
+    # Server-side attempt timestamp — the authoritative record of the order in
+    # which questions were answered. UUID PKs sort randomly, so review screens
+    # must order by this field, never by 'id'.
+    answered_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['id']
+        ordering = ['answered_at', 'id']
         indexes = [
             models.Index(fields=['session', 'question']),
+            models.Index(fields=['session', 'answered_at']),
         ]
         constraints = [
             models.UniqueConstraint(
@@ -308,12 +313,6 @@ class SessionResponse(models.Model):
 
     def __str__(self):
         return f"Response in Session {self.session.id}"
-
-    class Meta:
-        ordering = ['id']
-        indexes = [
-            models.Index(fields=['session', 'question']),
-        ]
 
 
 # ═══════════════════════════════════════════════

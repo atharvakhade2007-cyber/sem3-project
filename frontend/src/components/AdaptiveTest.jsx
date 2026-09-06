@@ -14,6 +14,11 @@ const STATES = {
   ERROR: 'ERROR',
 };
 
+// User-selectable quiz length. The backend still generates a 2x hidden pool
+// for adaptive selection — the user only ever answers COUNT questions.
+const COUNT_OPTIONS = [5, 10, 15, 20];
+const DEFAULT_COUNT = 10;
+
 // ─── Difficulty Styling ────────────────────────
 const DIFF_STYLES = {
   easy: { bg: 'rgba(16,185,129,0.15)', color: '#34d399', border: 'rgba(16,185,129,0.3)' },
@@ -45,6 +50,8 @@ export default function AdaptiveTest({ documentId }) {
   const [question, setQuestion] = useState(null);
   const [selectedIndex, setSelectedIndex] = useState(null);
   const [feedback, setFeedback] = useState(null);
+  const [quizLength, setQuizLength] = useState(DEFAULT_COUNT); // user-picked count
+  const [totalQuestions, setTotalQuestions] = useState(DEFAULT_COUNT); // server-confirmed
   const [stats, setStats] = useState({
     answered: 0,
     correct: 0,
@@ -69,10 +76,12 @@ export default function AdaptiveTest({ documentId }) {
   const handleStart = useCallback(async () => {
     setState(STATES.LOADING);
     try {
-      const data = await startTest(documentId);
+      const data = await startTest(documentId, quizLength);
       setSessionId(data.session_id);
       setStats(prev => ({ ...prev, elo: data.start_elo }));
       setQuestion(data.question);
+      // Server is authoritative: it clamps to the available pool size.
+      setTotalQuestions(data.requested_questions || quizLength);
       setPendingQuestion(null);
       setSelectedIndex(null);
       setFeedback(null);
@@ -84,7 +93,7 @@ export default function AdaptiveTest({ documentId }) {
       setError(err.message);
       setState(STATES.ERROR);
     }
-  }, [documentId]);
+  }, [documentId, quizLength]);
 
   // ─── Select an option (no submit yet) ────────
   const handleSelectOption = useCallback((index) => {
@@ -211,6 +220,38 @@ export default function AdaptiveTest({ documentId }) {
           <DiffBadge label="hard" />
           <span style={{ color: '#64748b', fontSize: '0.8rem' }}>question difficulty</span>
         </div>
+
+        {/* Quiz length picker — how many questions to answer. */}
+        <div style={{ marginBottom: '2rem' }}>
+          <div style={{ color: '#94a3b8', fontSize: '0.85rem', marginBottom: '0.6rem', fontWeight: 600 }}>
+            How many questions?
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+            {COUNT_OPTIONS.map(n => {
+              const active = quizLength === n;
+              return (
+                <button
+                  key={n}
+                  onClick={() => setQuizLength(n)}
+                  style={{
+                    padding: '0.55rem 1.2rem',
+                    background: active ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : 'rgba(255,255,255,0.05)',
+                    border: active ? 'none' : '1px solid rgba(255,255,255,0.12)',
+                    borderRadius: 10,
+                    color: active ? '#fff' : '#94a3b8',
+                    fontWeight: 700,
+                    fontSize: '0.9rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {n}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         <button onClick={handleStart} style={{
           padding: '0.875rem 2.5rem',
           background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
@@ -221,7 +262,7 @@ export default function AdaptiveTest({ documentId }) {
           fontSize: '1rem',
           cursor: 'pointer',
         }}>
-          ▶ Start Test
+          ▶ Start Test ({quizLength} questions)
         </button>
       </div>
     );
@@ -359,16 +400,18 @@ export default function AdaptiveTest({ documentId }) {
     <div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: '1.5rem' }}>
         <div>
-          {/* Progress */}
+          {/* Progress — Question X of N (N = user-selected quiz length) */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
             <div style={{ flex: 1, height: 6, background: 'rgba(255,255,255,0.1)', borderRadius: 3, overflow: 'hidden' }}>
               <div style={{
                 height: '100%', background: 'linear-gradient(90deg, #6366f1, #8b5cf6)',
-                borderRadius: 3, width: `${(stats.answered / Math.max(stats.answered + 1, 5)) * 100}%`,
+                borderRadius: 3, width: `${Math.min(100, (stats.answered / Math.max(totalQuestions, 1)) * 100)}%`,
                 transition: 'width 0.3s',
               }} />
             </div>
-            <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>{stats.answered} answered</span>
+            <span style={{ fontSize: '0.85rem', color: '#94a3b8', fontWeight: 600 }}>
+              {stats.answered} / {totalQuestions} answered
+            </span>
           </div>
 
           {/* Question Card — keyed by the unique question id so React cleanly
@@ -384,7 +427,7 @@ export default function AdaptiveTest({ documentId }) {
                 background: 'rgba(99,102,241,0.2)', color: '#a5b4fc', fontWeight: 700,
                 fontSize: '0.8rem', padding: '0.25rem 0.6rem', borderRadius: 6,
               }}>
-                Q{questionNumber}
+                Question {questionNumber} of {totalQuestions}
               </span>
               <DiffBadge label={question?.difficulty_label} />
             </div>

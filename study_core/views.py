@@ -480,7 +480,10 @@ class TestCompleteView(APIView):
             session.end_elo = profile.elo_rating
             session.save()
 
-        responses = session.responses.select_related('question').all()
+        # Order by the server-side attempt timestamp so the review screen
+        # lists questions in exactly the order they were answered (UUID PKs
+        # sort randomly — 'id' ordering would scramble the sequence).
+        responses = session.responses.select_related('question').order_by('answered_at', 'id')
 
         total = responses.count()
         correct = responses.filter(is_correct=True).count()
