@@ -37,15 +37,16 @@ class UserProfileSerializer(serializers.ModelSerializer):
         model = UserProfile
         fields = [
             'id', 'username', 'email', 'bio', 'avatar', 'avatar_emoji',
-            'elo_rating', 'skill_level', 'gk_skill_tier',
+            'elo_rating', 'skill_level', 'gk_skill_tier', 'persona_tier',
             'total_questions_answered', 'total_quizzes_completed',
             'current_streak', 'longest_streak', 'last_quiz_completed_date',
             'created_at',
         ]
         read_only_fields = [
             'id', 'username', 'email', 'avatar_emoji', 'elo_rating',
-            'skill_level', 'gk_skill_tier', 'total_questions_answered',
-            'total_quizzes_completed', 'current_streak', 'longest_streak',
+            'skill_level', 'gk_skill_tier', 'persona_tier',
+            'total_questions_answered', 'total_quizzes_completed',
+            'current_streak', 'longest_streak',
             'last_quiz_completed_date', 'created_at',
         ]
 

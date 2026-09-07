@@ -38,7 +38,7 @@ export default function Upload({ onUpload }) {
 
     try {
       const result = await uploadDocument(file);
-      onUpload(result.document_id, result.filename);
+      onUpload(result.id, result.filename);
     } catch (err) {
       setError(err.message);
     } finally {

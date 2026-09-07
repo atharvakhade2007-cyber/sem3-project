@@ -23,7 +23,7 @@ from typing import List, Dict, Any, Optional
 
 from django.db import transaction
 
-from pages.utils.llm_generator import _call_gemini_structured
+from .llm_generator import _call_gemini_structured
 
 from study_core.models import DailyQuiz, DailyQuestion, UserProfile
 from study_core.services import irt_engine as irt

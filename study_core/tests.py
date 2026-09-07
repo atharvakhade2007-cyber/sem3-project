@@ -231,5 +231,5 @@ class AuthApiTests(TestCase):
         res = self.client.get('/api/v2/daily-quiz/leaderboard/')
         self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
 
-        res = self.client.post('/api/documents/upload/', {}, format='multipart')
+        res = self.client.post('/api/v2/documents/upload/', {}, format='multipart')
         self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)

@@ -4,7 +4,7 @@ import { defineConfig } from 'vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
-  // Stable output filenames so the Django template (pages/templates/index.html)
+  // Stable output filenames so the Django template (study_core/templates/index.html)
   // can reference the built bundle without hashed-name churn on every deploy.
   build: {
     rollupOptions: {

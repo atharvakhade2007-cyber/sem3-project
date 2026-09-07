@@ -12,7 +12,7 @@ export default function Flashcards({ documentId }) {
     async function load() {
       try {
         const result = await generateFlashcards(documentId);
-        setCards(result.flashcards);
+        setCards(result); // v2 returns the flashcard array directly
       } catch (err) {
         setError(err.message);
       } finally {

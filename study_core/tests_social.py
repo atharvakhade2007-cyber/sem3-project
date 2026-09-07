@@ -298,61 +298,6 @@ class ChallengeApiTests(TestCase):
         )
         self.assertEqual(submit.status_code, status.HTTP_400_BAD_REQUEST)
 
-    def test_duel_from_legacy_pdf_session(self):
-        """Regression: the PDF workspace runs on legacy (pages) sessions with
-        integer ids — duels must accept those and grade from the snapshot."""
-        from pages.models import (
-            UploadedPDF as LegacyPDF,
-            Question as LegacyQuestion,
-            TestSession as LegacySession,
-            SessionResponse as LegacyResponse,
-        )
-        alice, bob = make_user('alice'), make_user('bob')
-        make_friends(alice, bob)
-        pdf = LegacyPDF.objects.create(file='uploads/x.pdf', raw_text='t')
-        qs = [
-            LegacyQuestion.objects.create(
-                document=pdf, question_text=f'LQ{i}',
-                options=['A', 'B', 'C', 'D'], correct_index=0,
-            )
-            for i in range(2)
-        ]
-        session = LegacySession.objects.create(
-            user=alice, document=pdf, is_completed=True
-        )
-        LegacyResponse.objects.create(
-            session=session, question=qs[0], selected_index=0,
-            is_correct=True, time_taken_sec=7.0,
-        )
-        LegacyResponse.objects.create(
-            session=session, question=qs[1], selected_index=1,
-            is_correct=False, time_taken_sec=9.0,
-        )
-
-        # Integer session id must be accepted by the create endpoint
-        res = self._as(alice).post('/api/challenges/create/', {
-            'session_id': str(session.id),  # an int id from the legacy stack
-            'challenged_user_id': bob.pk,
-        })
-        self.assertEqual(res.status_code, status.HTTP_201_CREATED, res.data)
-        self.assertEqual(res.data['challenger_score'], 1)
-        self.assertEqual(res.data['question_count'], 2)
-        pk = res.data['id']
-
-        # Bob plays against the snapshot and wins
-        qs_data = self._as(bob).get(f'/api/challenges/{pk}/questions/')
-        self.assertEqual(qs_data.status_code, status.HTTP_200_OK)
-        answers = [
-            {'question_id': q['id'], 'selected_index': 0, 'time_taken_sec': 3.0}
-            for q in qs_data.data['questions']
-        ]
-        submit = self._as(bob).post(
-            f'/api/challenges/{pk}/submit/', {'answers': answers}, format='json'
-        )
-        self.assertEqual(submit.status_code, status.HTTP_200_OK)
-        self.assertEqual(submit.data['verdict'], 'won')
-        self.assertEqual(submit.data['challenged_score'], 2)
-
     def test_expired_duel(self):
         alice, bob, doc = self._setup()
         session = self._completed_session(alice, doc)

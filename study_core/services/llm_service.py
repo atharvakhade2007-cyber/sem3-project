@@ -1,8 +1,8 @@
 """
 LLM Service — Generates summaries, flashcards, and question banks.
 
-Wraps the existing Gemini integration from pages.utils.llm_generator
-and provides a clean service interface for the study_core app.
+Wraps the Gemini integration in services.llm_generator and provides a clean
+service interface for the study_core app.
 """
 
 import os
@@ -11,7 +11,7 @@ import re
 from typing import List, Dict, Any, Optional
 
 # Reuse the existing Gemini infrastructure
-from pages.utils.llm_generator import (
+from .llm_generator import (
     _call_gemini,
     _clean_and_parse_json,
 )

@@ -64,41 +64,33 @@ export async function confirmPasswordReset(uid, token, newPassword) {
   });
 }
 
-// ─── Document APIs (pages legacy) ─────────────────
+// ─── Document APIs (study_core v2) ────────────────
 
 export async function uploadDocument(file) {
   const formData = new FormData();
   formData.append('file', file);
-  return apiJson('/api/documents/upload/', { method: 'POST', body: formData });
+  return apiJson('/api/v2/documents/upload/', { method: 'POST', body: formData });
 }
 
-export async function generateSummary(docId, apiKey = null) {
-  return apiCall(`/documents/${docId}/summary/`, 'POST', { api_key: apiKey });
+export async function generateSummary(docId) {
+  // GET — generates on first call, then returns the cached summary.
+  return apiCallV2(`/documents/${docId}/summary/`);
 }
 
-export async function generateFlashcards(docId, apiKey = null) {
-  return apiCall(`/documents/${docId}/flashcards/`, 'POST', { api_key: apiKey });
+export async function generateFlashcards(docId) {
+  // GET — generates on first call, then returns the cached cards.
+  return apiCallV2(`/documents/${docId}/flashcards/`);
 }
 
-// ─── Adaptive Test APIs (pages legacy) ────────────
-
-export async function generateQuestionBank(docId, numQuestions = 20) {
-  return apiCall('/test/generate-bank/', 'POST', {
-    document_id: docId,
-    num_questions: numQuestions,
-  });
-}
+// ─── Adaptive Test APIs (study_core v2) ───────────
 
 export async function startTest(docId, questionCount = 10) {
-  // Use V2 endpoint (study_core) which supports UUID document IDs.
-  // The legacy V1 /api/test/start/ only handles integer UploadedPDF IDs.
   // questionCount = how many questions the user answers; the backend still
   // generates a 2x hidden pool for adaptive selection.
   return apiCallV2('/test/start/', 'POST', { document_id: docId, question_count: questionCount });
 }
 
 export async function submitAnswer(sessionId, questionId, selectedIndex, timeTakenSec) {
-  // Use V2 endpoint (study_core) which handles UUID session/question IDs.
   return apiCallV2('/test/submit-answer/', 'POST', {
     session_id: sessionId,
     question_id: questionId,

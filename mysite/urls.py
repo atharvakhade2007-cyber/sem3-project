@@ -6,7 +6,6 @@ from django.views.generic import TemplateView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("api/", include("pages.urls")),
     path("api/v2/", include("study_core.urls")),
     path("api/auth/", include("study_core.auth_urls")),
     path("api/user/", include("study_core.user_urls")),
@@ -23,4 +22,4 @@ urlpatterns += [
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-    urlpatterns += static('/static/react_build/', document_root='pages/static/react_build/')
+    urlpatterns += static('/static/react_build/', document_root='study_core/static/react_build/')

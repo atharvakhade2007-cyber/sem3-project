@@ -10,7 +10,7 @@ export default function Summary({ documentId }) {
     async function load() {
       try {
         const result = await generateSummary(documentId);
-        setData(result.summary);
+        setData(result); // v2 returns the summary object directly
       } catch (err) {
         setError(err.message);
       } finally {

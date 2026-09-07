@@ -235,7 +235,7 @@ export default function Navbar() {
                         {avatarEmoji(user.avatar)} {user.username}
                       </div>
                       <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '0.15rem' }}>
-                        🎯 {eloLevelName(user.elo_rating ?? 0)} · {Math.round(user.elo_rating ?? 0)} Elo
+                        🎯 {user.persona_tier || eloLevelName(user.elo_rating ?? 0)} · {Math.round(user.elo_rating ?? 0)} Elo
                       </div>
                     </div>
                     <Link

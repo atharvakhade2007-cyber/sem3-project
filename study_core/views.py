@@ -1,4 +1,5 @@
 from django.shortcuts import get_object_or_404
+from django.http import Http404
 
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
@@ -34,7 +35,7 @@ from .services.persona_engine import (
     determine_and_predict_persona,
 )
 
-from pages.utils.pdf_parser import extract_text_from_pdf
+from .services.pdf_parser import extract_text_from_pdf
 
 
 # ──────────────────────────────────────────────
@@ -85,7 +86,7 @@ def _get_document_for_user_or_challenge(doc_uuid, request):
     except Exception:
         pass
 
-    raise get_object_or_404(Document, id=doc_uuid)
+    raise Http404('Document not found.')
 
 
 # ═══════════════════════════════════════════════
@@ -215,39 +216,7 @@ class TestStartView(APIView):
         user = _get_user(request)
         profile = _get_or_create_profile(user)
 
-        # Accept both study_core Document (UUID) and legacy pages UploadedPDF (int).
-        try:
-            doc = get_object_or_404(Document, id=doc_id)
-        except Exception:
-            # Fallback: try legacy pages UploadedPDF by integer id.
-            from pages.models import UploadedPDF
-            try:
-                uploaded_pdf = get_object_or_404(UploadedPDF, id=int(doc_id))
-                # Create or find a study_core Document linked to this user.
-                doc = Document.objects.filter(
-                    user=user,
-                    filename=uploaded_pdf.file.name,
-                ).first()
-                if not doc:
-                    doc = Document.objects.create(
-                        user=user,
-                        file=uploaded_pdf.file,
-                        filename=uploaded_pdf.file.name,
-                    )
-                    # Reuse raw_text if already extracted by the pages app.
-                    if uploaded_pdf.raw_text.strip():
-                        doc.raw_text = uploaded_pdf.raw_text
-                        doc.save(update_fields=['raw_text'])
-                    else:
-                        try:
-                            text = extract_text_from_pdf(doc.file.path)
-                            if text.strip():
-                                doc.raw_text = text
-                                doc.save(update_fields=['raw_text'])
-                        except Exception:
-                            pass
-            except Exception:
-                raise
+        doc = get_object_or_404(Document, id=doc_id)
 
         # Decide persona tier via the two-tier rules from the spec.
         # Phase 1 (cold start): < 3 completed quizzes -> default persona.

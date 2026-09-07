@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { updateProfile, changePassword, fetchAnalytics } from '../api';
-import { AVATARS, TIER_LABELS, eloLevelName } from '../constants';
+import { AVATARS, eloLevelName } from '../constants';
 import StudentAnalyticsDashboard from './StudentAnalyticsDashboard';
 
 const TABS = [
@@ -102,6 +102,13 @@ export default function Profile() {
     }
   }, [tab]);
 
+  // Keep the profile header in sync with the ML-predicted level: re-fetch the
+  // profile on mount so persona_tier (single source of truth shared with the
+  // Analytics tab) is never stale from a cached login state.
+  useEffect(() => {
+    refreshUser().catch(() => {});
+  }, []);
+
   if (!user) return null;
 
   const saveDetails = async e => {
@@ -188,7 +195,7 @@ export default function Profile() {
         <div>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 800 }}>{user.username}</h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-            {user.email} · 🎯 {TIER_LABELS[user.gk_skill_tier] || user.gk_skill_tier || 'Intermediate'}
+            {user.email}
           </p>
         </div>
       </div>
@@ -246,7 +253,7 @@ export default function Profile() {
           }}>
             <StatCard icon="🔥" label="Current Streak" value={user.current_streak ?? 0} />
             <StatCard icon="🏆" label="Longest Streak" value={user.longest_streak ?? 0} />
-            <StatCard icon="🎯" label="Level" value={eloLevelName(user.elo_rating ?? 0)} />
+            <StatCard icon="🎯" label="Level" value={user.persona_tier || 'Intermediate'} />
             <StatCard icon="📈" label="Elo Rating" value={Math.round(user.elo_rating ?? 0)} />
             <StatCard icon="📝" label="Quizzes Completed" value={user.total_quizzes_completed ?? 0} />
             <StatCard icon="❓" label="Questions Answered" value={user.total_questions_answered ?? 0} />

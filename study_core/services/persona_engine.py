@@ -63,6 +63,10 @@ def determine_and_predict_persona(
     profile.
 
     Returns (persona_tier, probabilities).
+
+    The result is persisted to profile.persona_tier so every surface
+    (profile header, overview, analytics, leaderboards) reads the SAME
+    ML-predicted level instead of diverging hardcoded/stale values.
     """
     completed = profile.total_quizzes_completed
     if completed < 3:
@@ -73,10 +77,26 @@ def determine_and_predict_persona(
             'Intermediate': 0.34,
             'Advanced': 0.33,
         }
+        _persist_persona(profile, persona)
         return persona, probs
 
     persona, probs = predict_initial_persona(profile)
+    _persist_persona(profile, persona)
     return persona, probs
+
+
+def _persist_persona(profile: UserProfile, persona: str) -> None:
+    """Persist the current persona prediction to the UserProfile.
+
+    Keeps profile.persona_tier in sync with the prediction system so the
+    analytics endpoint and the profile API expose one authoritative value.
+    No-op when the tier is already current, to avoid redundant writes.
+    """
+    if persona not in PERSONA_CHOICES or profile.persona_tier == persona:
+        return
+    profile.persona_tier = persona
+    profile.persona_predicted_at = timezone.now()
+    profile.save(update_fields=['persona_tier', 'persona_predicted_at'])
 
 
 def predict_initial_persona(profile: UserProfile) -> Tuple[str, Dict[str, float]]:

@@ -74,42 +74,22 @@ def _snapshot_from_responses(responses):
 
 
 def _resolve_user_session(user, session_id):
-    """Resolve a session_id against the pages-legacy stack first, then study_core.
+    """Resolve a session_id to the user's completed study_core TestSession.
 
     Returns a tuple ``(kind, session, document_filename)`` or ``None``.
-    The adaptive-test UI (PDF workspace) runs on the legacy ``pages`` models
-    with integer ids; study_core sessions are UUID-keyed.
     """
     sid = str(session_id).strip()
 
-    # 1) Legacy pages stack (integer ids) — what the PDF workspace uses.
-    try:
-        from pages.models import TestSession as LegacyTestSession
-
-        int_id = int(sid)
-    except (ImportError, ValueError):
-        int_id = None
-
-    if int_id is not None:
-        try:
-            legacy = LegacyTestSession.objects.select_related('document').get(
-                id=int_id, user=user
-            )
-            return 'legacy', legacy, _filename(legacy.document)
-        except LegacyTestSession.DoesNotExist:
-            pass
-
-    # 2) study_core stack (UUID ids).
     try:
         parsed = uuid_mod.UUID(sid)
     except (ValueError, AttributeError):
-        parsed = None
-    if parsed is not None:
-        core = TestSession.objects.select_related('document').filter(
-            id=parsed, user=user
-        ).first()
-        if core is not None:
-            return 'core', core, _filename(core.document)
+        return None
+
+    core = TestSession.objects.select_related('document').filter(
+        id=parsed, user=user
+    ).first()
+    if core is not None:
+        return 'core', core, _filename(core.document)
     return None
 
 
@@ -127,8 +107,6 @@ def _filename(document):
 
 
 def _responses_of(session, kind):
-    if kind == 'legacy':
-        return session.responses.select_related('question').order_by('id')
     return session.responses.select_related('question').order_by('id')
 
 
@@ -139,34 +117,7 @@ class CompletedSessionsView(APIView):
         me = _me(request)
         sessions = []
 
-        # Legacy (pages) sessions — the PDF workspace.
-        try:
-            from pages.models import TestSession as LegacyTestSession
-
-            legacy_qs = (
-                LegacyTestSession.objects.filter(user=me, is_completed=True)
-                .select_related('document')
-                .prefetch_related('responses__question')
-                .order_by('-created_at')[:50]
-            )
-            for s in legacy_qs:
-                responses = list(s.responses.all())
-                total = len(responses)
-                correct = sum(1 for r in responses if r.is_correct)
-                time_sec = round(sum(float(r.time_taken_sec or 0) for r in responses), 2)
-                sessions.append({
-                    'session_id': str(s.id),
-                    'document_filename': _filename(s.document) or 'Study session',
-                    'questions_answered': total,
-                    'correct_count': correct,
-                    'accuracy': round(correct / total * 100, 1) if total else 0.0,
-                    'total_time_sec': time_sec,
-                    'created_at': s.created_at.isoformat() if s.created_at else None,
-                })
-        except ImportError:
-            pass
-
-        # study_core sessions (UUID).
+        # Completed adaptive sessions (UUID).
         core_qs = (
             TestSession.objects.filter(user=me, is_completed=True)
             .select_related('document')
@@ -196,9 +147,8 @@ class ChallengeCreateView(APIView):
     """
     POST /api/challenges/create/  {session_id, challenged_user_id}
 
-    Snapshots the challenger's completed session (either the legacy PDF-workspace
-    stack or study_core) into a self-contained duel question set. The target
-    must be a confirmed friend.
+    Snapshots the challenger's completed adaptive session into a
+    self-contained duel question set. The target must be a confirmed friend.
     """
 
     def post(self, request):
@@ -238,8 +188,8 @@ class ChallengeCreateView(APIView):
 
         snapshot, question_ids, score, total_time = _snapshot_from_responses(responses)
 
-        core_session = session if kind == 'core' else None
-        core_document = session.document if kind == 'core' else None
+        core_session = session
+        core_document = session.document
         try:
             # Nested atomic → the IntegrityError rolls back only a savepoint,
             # leaving the surrounding transaction usable.
