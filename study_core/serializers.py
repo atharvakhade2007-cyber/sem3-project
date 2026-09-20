@@ -12,7 +12,6 @@ from .models import (
     Document,
     Flashcard,
     Question,
-    SharedChallenge,
     TestSession,
     SessionResponse,
     Friendship,
@@ -376,20 +375,10 @@ class QuestionBriefSerializer(serializers.ModelSerializer):
         fields = ['id', 'question_text', 'options', 'difficulty_label', 'difficulty_rating']
 
 
-class SharedChallengeSerializer(serializers.ModelSerializer):
-    creator_username = serializers.CharField(source='creator.username', read_only=True)
-    document_filename = serializers.CharField(source='document.filename', read_only=True)
-
-    class Meta:
-        model = SharedChallenge
-        fields = ['id', 'document', 'document_filename', 'creator', 'creator_username', 'is_active', 'created_at']
-        read_only_fields = ['id', 'creator', 'is_active', 'created_at']
-
-
 class TestSessionSerializer(serializers.ModelSerializer):
     class Meta:
         model = TestSession
-        fields = ['id', 'user', 'document', 'challenge', 'start_elo', 'end_elo', 'is_completed']
+        fields = ['id', 'user', 'document', 'start_elo', 'end_elo', 'is_completed']
         read_only_fields = ['id', 'user', 'start_elo', 'end_elo', 'is_completed']
 
 
@@ -438,15 +427,6 @@ class SubmitAnswerSerializer(serializers.Serializer):
 class CompleteTestSerializer(serializers.Serializer):
     session_id = serializers.UUIDField()
 
-
-class ShareDocumentSerializer(serializers.Serializer):
-    """Empty serializer — share endpoint just needs the document UUID in the URL."""
-    pass
-
-
-class ChallengeStartSerializer(serializers.Serializer):
-    """Empty serializer — challenge start uses UUID in URL."""
-    pass
 
 
 # ──────────────────────────────────────────────

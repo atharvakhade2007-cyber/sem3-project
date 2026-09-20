@@ -1,3 +1,4 @@
+
 from django.shortcuts import get_object_or_404
 from django.http import Http404
 
@@ -16,11 +17,11 @@ from .models import (
 from .serializers import (
     DocumentSerializer, DocumentDetailSerializer,
     FlashcardSerializer, QuestionBriefSerializer,
-    SharedChallengeSerializer, TestSessionSerializer,
+    TestSessionSerializer,
     SessionResponseSerializer, SummaryResponseSerializer,
     UploadDocumentSerializer, StartTestSerializer,
     SubmitAnswerSerializer, CompleteTestSerializer,
-    LeaderboardEntrySerializer, UserProfileSerializer,
+    UserProfileSerializer,
 )
 from .services.adaptive_engine import AdaptiveEloEngine
 from .services import llm_service
@@ -684,7 +685,7 @@ from django.db import transaction
 from django.db import IntegrityError
 from .models import (
     DailyQuiz, DailyQuestion, DailyQuizSession,
-    DailyQuizAnswer, UserProfile,
+    DailyQuizAnswer,
 )
 from .services.daily_quiz_service import (
     ensure_daily_quiz_for_date,

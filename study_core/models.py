@@ -93,13 +93,6 @@ class UserProfile(models.Model):
         """Render the stored avatar key as its emoji only."""
         return dict(self.Avatar.choices).get(self.avatar, '🦉').split(' ', 1)[0]
 
-    @property
-    def total_quizzes_completed(self):
-        """Total completed quizzes (daily quiz attempts + adaptive test sessions)."""
-        return (
-            DailyQuizSession.objects.filter(user=self.user).count()
-            + TestSession.objects.filter(user=self.user, is_completed=True).count()
-        )
 
     class Meta:
         indexes = [
@@ -182,28 +175,6 @@ class Question(models.Model):
         ]
 
 
-class SharedChallenge(models.Model):
-    """A shareable link allowing friends to take an adaptive test on a document."""
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    document = models.ForeignKey(
-        Document, on_delete=models.CASCADE, related_name='challenges'
-    )
-    creator = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name='created_challenges'
-    )
-    is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"Challenge {self.id} by {self.creator.username}"
-
-    class Meta:
-        ordering = ['-created_at']
-        indexes = [
-            models.Index(fields=['id', 'is_active']),
-        ]
-
-
 class TestSession(models.Model):
     """A test session tracking Elo progression for a user on a document."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -212,13 +183,6 @@ class TestSession(models.Model):
     )
     document = models.ForeignKey(
         Document, on_delete=models.CASCADE, related_name='test_sessions'
-    )
-    challenge = models.ForeignKey(
-        SharedChallenge,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='sessions'
     )
     start_elo = models.FloatField(default=100.0)
     end_elo = models.FloatField(null=True, blank=True)
@@ -243,7 +207,6 @@ class TestSession(models.Model):
         ordering = ['-created_at', '-id']
         indexes = [
             models.Index(fields=['user']),
-            models.Index(fields=['challenge', 'user']),
         ]
 
 

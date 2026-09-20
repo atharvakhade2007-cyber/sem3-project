@@ -106,7 +106,7 @@ def _filename(document):
     return ''
 
 
-def _responses_of(session, kind):
+def _responses_of(session):
     return session.responses.select_related('question').order_by('id')
 
 
@@ -179,7 +179,7 @@ class ChallengeCreateView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        responses = list(_responses_of(session, kind))
+        responses = list(_responses_of(session))
         if not responses:
             return Response(
                 {'error': 'This session has no answered questions to duel with.'},

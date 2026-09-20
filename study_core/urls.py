@@ -38,28 +38,6 @@ urlpatterns = [
         name='test-complete',
     ),
 
-    # ── Social Sharing & Challenges ──
-    path(
-        'documents/<uuid:doc_id>/share/',
-        views.DocumentShareView.as_view(),
-        name='document-share',
-    ),
-    path(
-        'challenge/<uuid:challenge_id>/',
-        views.ChallengeDetailView.as_view(),
-        name='challenge-detail',
-    ),
-    path(
-        'challenge/<uuid:challenge_id>/start/',
-        views.ChallengeStartView.as_view(),
-        name='challenge-start',
-    ),
-    path(
-        'challenge/<uuid:challenge_id>/leaderboard/',
-        views.ChallengeLeaderboardView.as_view(),
-        name='challenge-leaderboard',
-    ),
-
     # ── User Profile ──
     path(
         'profile/',
