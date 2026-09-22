@@ -32,7 +32,7 @@ def _asset_path(relative: str) -> str:
 
 
 DATASET_PATH = _asset_path("dataset/student_performance_elo_dataset.csv")
-MODEL_PATH = _asset_path("models/model.pkl")
+MODEL_PATH = _asset_path("models/best_model_pipeline.pkl")
 
 FEATURE_COLUMNS: List[str] = [
     "quiz_attempts",

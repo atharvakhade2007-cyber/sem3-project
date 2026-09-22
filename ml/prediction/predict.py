@@ -15,7 +15,7 @@ from typing import Any, Dict, Optional, Tuple
 
 import pandas as pd
 
-_PICKLE_PATH = os.path.join(os.path.dirname(__file__), "..", "models", "model.pkl")
+_PICKLE_PATH = os.path.join(os.path.dirname(__file__), "..", "models", "best_model_pipeline.pkl")
 
 
 def _load_model_bundle() -> Dict[str, Any]:
