@@ -103,11 +103,6 @@ def p_correct(theta: float, b: float) -> float:
     return 1.0 / (1.0 + math.exp(-x))
 
 
-def expected_on_tier(theta: float, tier: str) -> float:
-    """P(correct) for the user on an entire difficulty tier."""
-    return p_correct(theta, difficulty_from_tier(tier))
-
-
 def update_theta(
     theta: float,
     b: float,

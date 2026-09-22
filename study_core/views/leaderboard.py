@@ -1,17 +1,13 @@
+"""Friend-scoped leaderboard view."""
+
 from django.db.models import Sum
 from django.db.models.functions import Coalesce
 
-from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Friendship, UserProfile, DailyQuizSession
-
-
-def _me(request):
-    if hasattr(request, 'user') and request.user and request.user.is_authenticated:
-        return request.user
-    raise AuthenticationFailed('Authentication required.')
+from ..models import Friendship, UserProfile, DailyQuizSession
+from .common import _get_user as _me
 
 
 class FriendLeaderboardView(APIView):

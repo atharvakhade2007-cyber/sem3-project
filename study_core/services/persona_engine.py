@@ -214,52 +214,6 @@ def select_next_sub_tier_from_state(
     return SUB_TIER_ORDER[current_idx]
 
 
-def select_question_for_sub_tier_from_state(
-    session: TestSession,
-    state: QuizSessionState,
-    questions: List[Question],
-) -> Optional[Question]:
-    """
-    Pick the best next question from `questions` that:
-      - Has not already been served in this session.
-      - Matches the current active sub-tier's difficulty band.
-      - Is the closest ZPD match among those, using AdaptiveEloEngine.
-
-    If no question exists in the current sub-tier, fall back to the closest
-    ZPD question across all remaining questions so the session never stalls.
-    """
-    served = set(state.served_question_ids or [])
-    available = [q for q in questions if str(q.id) not in served]
-    if not available:
-        return None
-
-    sub_tier = state.active_sub_tier
-    band_min, band_max = _sub_tier_band(sub_tier)
-
-    def in_band(q: Question) -> bool:
-        r = q.difficulty_rating
-        return band_min <= r <= band_max
-
-    candidates = [q for q in available if in_band(q)]
-    if not candidates:
-        candidates = available
-
-    # Use the existing adaptive engine to pick the optimal ZPD question.
-    # We only pass difficulty_rating so the existing select_next_question logic
-    # selects the closest-to-target question among candidates.
-    best = AdaptiveEloEngine.select_next_question(
-        session.start_elo,
-        [{'id': q.id, 'difficulty_rating': q.difficulty_rating} for q in candidates],
-    )
-    if best is None:
-        return None
-
-    for q in candidates:
-        if str(q.id) == str(best['id']):
-            return q
-    return candidates[0]
-
-
 def _sub_tier_band(sub_tier: str) -> Tuple[float, float]:
     """Return (min_rating, max_rating) assumed for a given sub-tier label."""
     bands = {

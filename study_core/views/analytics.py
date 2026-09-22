@@ -1,19 +1,18 @@
 """Analytics & portfolio read APIs for the student analytics dashboard.
 
 Cache-friendly read endpoints powering the "My Profile" analytics pane.
-All aggregations count only answered questions (is_served=True AND
-is_answered=True) to avoid polluting metrics with unused/deleted pool items.
+All aggregations count only answered questions (rows in SessionResponse) to
+avoid polluting metrics with unused pool items.
 """
 
 from django.utils import timezone
-from django.db.models import Avg, Count, Q, Sum
+from django.db.models import Count, Q, Sum
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import (
-    Question,
+from ..models import (
     SessionResponse,
     TestSession,
     UserProfile,
@@ -35,21 +34,13 @@ class UserAnalyticsView(APIView):
         now = timezone.now()
         seven_days_ago = now - timezone.timedelta(days=7)
 
-        # ── Base queryset: only answered responses ──────────────────────
-        # SessionResponse is linked via session__respondses, not session_response.
-        # We filter directly on SessionResponse.objects with session__user.
-        answered_filter = Q(
-            session__is_completed=True,
-        )
-
         # Completed sessions for this user
         completed_sessions = TestSession.objects.filter(
             user=user,
             is_completed=True,
         ).prefetch_related('responses', 'responses__question')
 
-        # ── Aggregate counts ────────────────────────────────────────────
-        # Use the session_responses related_name.
+        # ── Aggregate counts (answered responses only) ──────────────────
         agg = SessionResponse.objects.filter(
             session__user=user,
             session__is_completed=True,
@@ -103,7 +94,7 @@ class UserAnalyticsView(APIView):
                 )
             else:
                 sub = base.filter(question__difficulty_rating__gte=300)
-            
+
             attempted = sub.count()
             correct = sub.filter(is_correct=True).count()
             acc = round(correct / attempted * 100, 1) if attempted > 0 else 0.0

@@ -12,8 +12,6 @@ from .models import (
     Document,
     Flashcard,
     Question,
-    TestSession,
-    SessionResponse,
     Friendship,
     QuizChallenge,
 )
@@ -343,29 +341,10 @@ class DocumentSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at']
 
 
-class DocumentDetailSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Document
-        fields = [
-            'id', 'filename', 'raw_text', 'summary_data',
-            'created_at',
-        ]
-        read_only_fields = ['id', 'raw_text', 'summary_data', 'created_at']
-
-
 class FlashcardSerializer(serializers.ModelSerializer):
     class Meta:
         model = Flashcard
         fields = ['id', 'front', 'back']
-
-
-class QuestionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Question
-        fields = [
-            'id', 'question_text', 'options', 'correct_index',
-            'explanation', 'difficulty_rating', 'difficulty_label',
-        ]
 
 
 class QuestionBriefSerializer(serializers.ModelSerializer):
@@ -373,23 +352,6 @@ class QuestionBriefSerializer(serializers.ModelSerializer):
     class Meta:
         model = Question
         fields = ['id', 'question_text', 'options', 'difficulty_label', 'difficulty_rating']
-
-
-class TestSessionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = TestSession
-        fields = ['id', 'user', 'document', 'start_elo', 'end_elo', 'is_completed']
-        read_only_fields = ['id', 'user', 'start_elo', 'end_elo', 'is_completed']
-
-
-class SessionResponseSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = SessionResponse
-        fields = [
-            'id', 'session', 'question', 'selected_index',
-            'is_correct', 'time_taken_sec', 'user_elo_after',
-            'question_elo_after',
-        ]
 
 
 # ──────────────────────────────────────────────
@@ -428,25 +390,9 @@ class CompleteTestSerializer(serializers.Serializer):
     session_id = serializers.UUIDField()
 
 
-
 # ──────────────────────────────────────────────
-#  Nested Response Serializers
+#  Social Serializers
 # ──────────────────────────────────────────────
-
-
-class SummaryResponseSerializer(serializers.Serializer):
-    executive_summary = serializers.CharField()
-    key_concepts = serializers.ListField(child=serializers.CharField())
-    terminology = serializers.ListField(child=serializers.DictField())
-
-
-class LeaderboardEntrySerializer(serializers.Serializer):
-    username = serializers.CharField()
-    start_elo = serializers.FloatField()
-    end_elo = serializers.FloatField()
-    elo_gained = serializers.FloatField()
-    accuracy = serializers.FloatField()
-    questions_answered = serializers.IntegerField()
 
 
 class SendFriendRequestSerializer(serializers.Serializer):

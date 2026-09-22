@@ -1,35 +1,23 @@
+"""Social graph views (friends, requests, search)."""
+
 from django.contrib.auth.models import User
 from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 
 from rest_framework import status
-from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Friendship, UserProfile, QuizChallenge
-from .serializers import (
+from ..models import Friendship, UserProfile, QuizChallenge
+from ..serializers import (
     FriendshipSerializer,
     SocialProfileSerializer,
     SendFriendRequestSerializer,
     RespondFriendRequestSerializer,
     ManageFriendSerializer,
 )
-
-
-def _me(request):
-    if hasattr(request, 'user') and request.user and request.user.is_authenticated:
-        return request.user
-    raise AuthenticationFailed('Authentication required.')
-
-
-def _serialized_profile(user, context):
-    try:
-        profile = user.study_profile
-    except UserProfile.DoesNotExist:
-        profile = UserProfile.objects.create(user=user)
-    return SocialProfileSerializer(profile, context=context).data
+from .common import _get_user as _me
 
 
 class FriendsListView(APIView):

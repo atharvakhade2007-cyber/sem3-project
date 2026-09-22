@@ -1,6 +1,7 @@
 from django.contrib.auth.models import User
 from django.utils import timezone
 from datetime import timedelta
+from unittest.mock import patch
 
 from rest_framework import status
 from rest_framework.test import APIClient
@@ -325,6 +326,22 @@ class DailyQuizAnswerFlowTests(TestCase):
         self.client.force_authenticate(user=self.user)
         self.today = timezone.localdate()
         self.quiz = DailyQuiz.objects.create(date=self.today)
+        self._stub_quiz_generation()
+
+    def _stub_quiz_generation(self):
+        """Serve the manually-built fixture quiz without lazy regeneration.
+
+        ensure_daily_quiz_for_date deletes quizzes with < 20 questions and
+        rebuilds them via Gemini; stubbing the view-level seam keeps these
+        tests deterministic and offline.
+        """
+        quiz = self.quiz
+        patcher = patch(
+            'study_core.views.daily_quiz._ensure_today_quiz',
+            return_value=quiz,
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
         # 2 universal CA + 2 GK on the easy tier (the θ-derived default at
         # 0 Elo) → 4 served questions
@@ -512,6 +529,7 @@ class IrtDailyQuizIntegrationTests(TestCase):
         self.client.force_authenticate(user=self.user)
         self.today = timezone.localdate()
         self.quiz = DailyQuiz.objects.create(date=self.today)
+        self._stub_quiz_generation()
 
         # 1 universal CA + 1 GK per tier so any θ-chosen tier is servable
         self.ca = DailyQuestion.objects.create(
@@ -878,9 +896,10 @@ class DuelEloIntegrationTests(TestCase):
         }, format='json')
         self.assertEqual(res.status_code, status.HTTP_200_OK)
 
-        # Both at 0 → E=0.5. Alice (K=20) loses 10, Bob (K=40, provisional) wins 20.
+        # Profiles default to 100 Elo (two-tier scale floor).
+        # E=0.5 → Alice (K=20) loses 10, Bob (K=40, provisional) gains 20.
         alice.refresh_from_db(); bob.refresh_from_db()
-        self.assertAlmostEqual(alice.study_profile.elo_rating, -10.0, delta=0.2)
-        self.assertAlmostEqual(bob.study_profile.elo_rating, 20.0, delta=0.2)
+        self.assertAlmostEqual(alice.study_profile.elo_rating, 90.0, delta=0.2)
+        self.assertAlmostEqual(bob.study_profile.elo_rating, 120.0, delta=0.2)
         self.assertEqual(duels_played(alice), 20)
         self.assertEqual(duels_played(bob), 1)

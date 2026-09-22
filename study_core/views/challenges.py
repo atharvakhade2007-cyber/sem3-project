@@ -1,3 +1,5 @@
+"""1v1 async duel (QuizChallenge) views."""
+
 import uuid as uuid_mod
 from datetime import timedelta
 
@@ -8,30 +10,24 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
 from rest_framework import status
-from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Friendship, QuizChallenge, TestSession
-from .serializers import (
+from ..models import Friendship, QuizChallenge, TestSession
+from ..serializers import (
     QuizChallengeSerializer,
     ChallengeCreateSerializer,
     ChallengeSubmitSerializer,
 )
-from .services.rating_engine import (
+from ..services.rating_engine import (
     apply_duel_elo_ratings,
     resolve_duel_outcome,
 )
+from .common import _get_user as _me
 
 # Pending duels expire after this long (default 1 hour — matches the product
 # decision of "30 min – 1 hr" for a friend to respond).
 CHALLENGE_TTL = timedelta(minutes=60)
-
-
-def _me(request):
-    if hasattr(request, 'user') and request.user and request.user.is_authenticated:
-        return request.user
-    raise AuthenticationFailed('Authentication required.')
 
 
 def _expire_stale():
@@ -45,10 +41,9 @@ def _expire_stale():
 def _snapshot_from_responses(responses):
     """Build the self-contained duel snapshot from answered questions.
 
-    Works with EITHER question/session stack: ``responses`` is an iterable of
-    session-response rows exposing ``.is_correct``, ``.time_taken_sec`` and a
-    ``.question`` with ``.id`` / ``.question_text`` / ``.options`` /
-    ``.correct_index``.
+    ``responses`` is an iterable of session-response rows exposing
+    ``.is_correct``, ``.time_taken_sec`` and a ``.question`` with ``.id`` /
+    ``.question_text`` / ``.options`` / ``.correct_index``.
     """
     snapshot = []
     question_ids = []
@@ -94,7 +89,7 @@ def _resolve_user_session(user, session_id):
 
 
 def _filename(document):
-    """Extract a friendly filename from either Document model."""
+    """Extract a friendly filename from a Document."""
     if document is None:
         return ''
     name = getattr(document, 'filename', None)
@@ -107,7 +102,12 @@ def _filename(document):
 
 
 def _responses_of(session):
-    return session.responses.select_related('question').order_by('id')
+    """Session responses in true answer order.
+
+    Ordered by the server-side attempt timestamp, never by 'id' — UUID PKs
+    sort randomly, which would scramble the duel's question snapshot.
+    """
+    return session.responses.select_related('question').order_by('answered_at', 'id')
 
 
 class CompletedSessionsView(APIView):
@@ -117,7 +117,6 @@ class CompletedSessionsView(APIView):
         me = _me(request)
         sessions = []
 
-        # Completed adaptive sessions (UUID).
         core_qs = (
             TestSession.objects.filter(user=me, is_completed=True)
             .select_related('document')
@@ -165,7 +164,7 @@ class ChallengeCreateView(APIView):
                 {'error': 'Study session not found. Finish an adaptive test first.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        kind, session, doc_filename = resolved
+        _kind, session, doc_filename = resolved
         if not session.is_completed:
             return Response(
                 {'error': 'Finish your study session before turning it into a duel.'},
@@ -188,15 +187,13 @@ class ChallengeCreateView(APIView):
 
         snapshot, question_ids, score, total_time = _snapshot_from_responses(responses)
 
-        core_session = session
-        core_document = session.document
         try:
             # Nested atomic → the IntegrityError rolls back only a savepoint,
             # leaving the surrounding transaction usable.
             with transaction.atomic():
                 challenge = QuizChallenge.objects.create(
-                    session=core_session,
-                    document=core_document,
+                    session=session,
+                    document=session.document,
                     document_filename=doc_filename,
                     challenger=me,
                     challenged_user=target,

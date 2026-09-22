@@ -1,14 +1,5 @@
-"""
-JWT authentication endpoints (djangorestframework-simplejwt).
+"""JWT authentication + profile management views."""
 
-Design:
-- Access tokens are short-lived, returned in the JSON body, and sent back by
-  the client as `Authorization: Bearer <access>`.
-- Refresh tokens are long-lived and stored ONLY in an httpOnly, SameSite=Lax
-  cookie scoped to /api/auth/ (never exposed to JavaScript). They are rotated
-  on every refresh; the previous one is blacklisted.
-- Logout blacklists the active refresh token and clears the cookie.
-"""
 import logging
 
 from django.conf import settings
@@ -25,8 +16,8 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import UserProfile
-from .serializers import (
+from ..models import UserProfile
+from ..serializers import (
     ChangePasswordSerializer,
     LoginSerializer,
     PasswordResetConfirmSerializer,
@@ -343,3 +334,14 @@ class ChangePasswordView(APIView):
         user.set_password(serializer.validated_data['new_password'])
         user.save()
         return Response({'detail': 'Password changed successfully.'})
+
+
+class UserProfileView(APIView):
+    """GET /api/v2/profile/ — Return current user's profile."""
+
+    def get(self, request):
+        from .common import _get_user, _get_or_create_profile
+
+        user = _get_user(request)
+        profile = _get_or_create_profile(user)
+        return Response(UserProfileSerializer(profile).data)
