@@ -8,6 +8,6 @@ __pycache__/
 *.pyo
 *.sqlite3
 .DS_Store
-
+.freebuff/
 # User uploads — never commit user data
 media/
