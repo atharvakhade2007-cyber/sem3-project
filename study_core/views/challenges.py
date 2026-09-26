@@ -71,7 +71,7 @@ def _snapshot_from_responses(responses):
 def _resolve_user_session(user, session_id):
     """Resolve a session_id to the user's completed study_core TestSession.
 
-    Returns a tuple ``(kind, session, document_filename)`` or ``None``.
+    Returns a tuple ``(session, document_filename)`` or ``None``.
     """
     sid = str(session_id).strip()
 
@@ -84,7 +84,7 @@ def _resolve_user_session(user, session_id):
         id=parsed, user=user
     ).first()
     if core is not None:
-        return 'core', core, _filename(core.document)
+        return core, _filename(core.document)
     return None
 
 
@@ -164,7 +164,7 @@ class ChallengeCreateView(APIView):
                 {'error': 'Study session not found. Finish an adaptive test first.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        _kind, session, doc_filename = resolved
+        session, doc_filename = resolved
         if not session.is_completed:
             return Response(
                 {'error': 'Finish your study session before turning it into a duel.'},

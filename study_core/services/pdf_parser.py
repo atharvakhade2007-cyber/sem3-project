@@ -1,6 +1,9 @@
+import logging
 import os
 from typing import Union
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 def extract_text_from_pdf(pdf_path: Union[str, Path]) -> str:
@@ -31,7 +34,7 @@ def extract_text_from_pdf(pdf_path: Union[str, Path]) -> str:
     except ImportError:
         pass
     except Exception as e:
-        print(f"[pypdf extraction warning]: {e}")
+        logger.warning("pypdf extraction warning: %s", e)
 
     # Attempt 2: pdfplumber
     try:
@@ -48,7 +51,7 @@ def extract_text_from_pdf(pdf_path: Union[str, Path]) -> str:
     except ImportError:
         pass
     except Exception as e:
-        print(f"[pdfplumber extraction warning]: {e}")
+        logger.warning("pdfplumber extraction warning: %s", e)
 
     # Attempt 3: PyPDF2 fallback
     try:
@@ -66,7 +69,7 @@ def extract_text_from_pdf(pdf_path: Union[str, Path]) -> str:
     except ImportError:
         pass
     except Exception as e:
-        print(f"[PyPDF2 extraction warning]: {e}")
+        logger.warning("PyPDF2 extraction warning: %s", e)
 
     if not extracted_text.strip():
         raise ValueError(

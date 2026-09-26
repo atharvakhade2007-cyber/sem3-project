@@ -198,6 +198,20 @@ class RefreshView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
+        # Guard against tokens minted for users that no longer exist (e.g.
+        # after a database restore): SimpleJWT would happily hand out an
+        # access token for a ghost user, and every authenticated call would
+        # then fail with 'User not found'. Clear the stale cookie so the
+        # client starts a clean session.
+        user = User.objects.filter(pk=refresh['user_id']).first()
+        if user is None:
+            response = Response(
+                {'error': 'Account no longer exists. Please sign up or sign in again.'},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+            _clear_refresh_cookie(response)
+            return response
+
         if settings.SIMPLE_JWT.get('BLACKLIST_AFTER_ROTATION'):
             try:
                 refresh.blacklist()

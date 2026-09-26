@@ -1,9 +1,10 @@
-"""ML prediction wrapper for the pre-trained RandomForestClassifier.
+"""ML prediction wrapper for the pre-trained classifier.
 
-Loads `ml/models/model.pkl` once and exposes `predict_student_level(student_data)`.
+Loads the trained model bundle (`ml/models/best_model_pipeline.pkl`) once and
+exposes `predict_student_level(student_data)`.
 
 The model bundle is expected to be a dict with keys:
-    - "model": trained sklearn estimator
+    - "pipeline" (or legacy "model"): trained sklearn estimator / Pipeline
     - "features": ordered list of feature names used during training
 """
 
@@ -23,15 +24,20 @@ def _load_model_bundle() -> Dict[str, Any]:
     if not os.path.isfile(_PICKLE_PATH):
         raise FileNotFoundError(
             "ML model not found at "
-            f"{_PICKLE_PATH}. Place model.pkl from training in ml/models/."
+            f"{_PICKLE_PATH}. Place the trained model bundle "
+            "(best_model_pipeline.pkl) in ml/models/."
         )
     import joblib
 
     bundle = joblib.load(_PICKLE_PATH)
     if not isinstance(bundle, dict):
-        raise ValueError("model.pkl must contain a dict with 'model' and 'features'.")
-    if "model" not in bundle or "features" not in bundle:
-        raise ValueError("model.pkl bundle missing required keys: 'model', 'features'.")
+        raise ValueError(
+            "model bundle must be a dict with 'pipeline'/'model' and 'features'."
+        )
+    if "features" not in bundle or not ("pipeline" in bundle or "model" in bundle):
+        raise ValueError(
+            "model bundle missing required keys: 'features' and ('pipeline' or 'model')."
+        )
     return bundle
 
 
@@ -77,7 +83,7 @@ def predict_student_level(
     """
     bundle = _get_bundle()
     features = bundle["features"]
-    model = bundle["model"]
+    model = bundle["pipeline"] if "pipeline" in bundle else bundle["model"]
 
     missing = set(features) - set(student_data.keys())
     if missing:

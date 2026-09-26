@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 import os
+import sys
 from datetime import timedelta
 from pathlib import Path
 
@@ -109,16 +110,43 @@ WSGI_APPLICATION = "mysite.wsgi.application"
 #     }
 # }
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME', 'postgres'),
-        'USER': os.getenv('DB_USER'),
-        'PASSWORD': os.getenv('DB_PASSWORD'),
-        'HOST': os.getenv('DB_HOST'),
-        'PORT': os.getenv('DB_PORT', '6543'),
+# App DB is Supabase Postgres via the pooled connection (pgBouncer transaction
+# mode). Transaction pooling forbids server-side cursors, so they must be
+# disabled in OPTIONS. DB_* values come from .env.
+#
+# `manage.py test` always targets the LOCAL Postgres instance instead:
+# Supabase does not allow creating throwaway test databases through the
+# pooler, and the test suite must never touch real data.
+if 'test' in sys.argv:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ.get('TEST_DB_NAME', 'aimldb'),
+            'USER': os.environ.get('TEST_DB_USER', 'postgres'),
+            'PASSWORD': os.environ.get('TEST_DB_PASSWORD', '1234'),
+            'HOST': os.environ.get('TEST_DB_HOST', 'localhost'),
+            'PORT': os.environ.get('TEST_DB_PORT', '5432'),
+        }
     }
-}
+else:
+    _db_host = os.getenv('DB_HOST', '')
+    _db_opts = {}
+    if _db_host not in ('', 'localhost', '127.0.0.1'):
+        # Supabase (and most hosted Postgres) requires TLS; local dev DBs don't.
+        _db_opts['sslmode'] = 'require'
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.getenv('DB_NAME', 'postgres'),
+            'USER': os.getenv('DB_USER'),
+            'PASSWORD': os.getenv('DB_PASSWORD'),
+            'HOST': _db_host,
+            'PORT': os.getenv('DB_PORT', '6543'),
+            # Required behind pgBouncer transaction pooling (Django native option):
+            'DISABLE_SERVER_SIDE_CURSORS': True,
+            'OPTIONS': _db_opts,
+        }
+    }
 
 
 # Password validation

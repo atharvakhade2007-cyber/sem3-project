@@ -523,6 +523,19 @@ class IrtEngineMathTests(SimpleTestCase):
 class IrtDailyQuizIntegrationTests(TestCase):
     """θ-based tier serving + Elo feedback loop through the daily quiz API."""
 
+    def _stub_quiz_generation(self):
+        """Serve the manually-built fixture quiz without lazy regeneration.
+
+        Mirrors DailyQuizAnswerFlowTests._stub_quiz_generation: stubbing the
+        view-level seam keeps these tests deterministic and offline.
+        """
+        patcher = patch(
+            'study_core.views.daily_quiz._ensure_today_quiz',
+            return_value=self.quiz,
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def setUp(self):
         self.client = APIClient()
         self.user = make_user('adaptive')

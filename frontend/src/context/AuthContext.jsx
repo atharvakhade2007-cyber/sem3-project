@@ -28,6 +28,10 @@ export function AuthProvider({ children }) {
         const profile = await fetchProfile();
         if (!cancelled) setUser(profile);
       } catch {
+        // Refresh failed (e.g. stale cookie after a DB restore): drop any
+        // in-memory access token so later calls aren't sent with a dead
+        // credential. The user stays unauthenticated.
+        setAccessToken(null);
         if (!cancelled) setUser(null);
       } finally {
         if (!cancelled) setLoading(false);

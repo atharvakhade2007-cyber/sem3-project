@@ -18,7 +18,9 @@ google-generativeai==0.8.6
 celery>=5.4,<6
 redis>=5.0
 
-# ML: initial student-level prediction (Random Forest, loaded from model.pkl)
+# ML: initial student-level prediction (loaded from ml/models/best_model_pipeline.pkl)
+# scikit-learn is PINNED to the version the model was trained with; unpickling a
+# model trained on a different sklearn version can crash or silently degrade.
 pandas>=2.0
-scikit-learn>=1.6
+scikit-learn==1.6.1
 joblib>=1.4
