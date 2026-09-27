@@ -11,3 +11,4 @@ __pycache__/
 .freebuff/
 # User uploads — never commit user data
 media/
+docs/
