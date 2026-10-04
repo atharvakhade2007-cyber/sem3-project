@@ -2,18 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useUi } from '../context/UiContext';
+import { useTheme } from '../context/ThemeContext';
 import { fetchPendingCount } from '../api';
 import { eloLevelName, avatarEmoji } from '../constants';
 
 function ThemeToggle() {
-  const [theme, setTheme] = useState(
-    () => localStorage.getItem('theme') || 'dark'
-  );
-
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('theme', theme);
-  }, [theme]);
+  const { theme, setTheme } = useTheme();
 
   return (
     <button
