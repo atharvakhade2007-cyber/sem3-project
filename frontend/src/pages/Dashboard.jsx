@@ -17,7 +17,7 @@ const VIEWS = {
 function ActionCard({ icon, title, description, color, onClick }) {
   return (
     <div onClick={onClick} style={{
-      background: 'rgba(30,41,59,0.7)', border: '1px solid rgba(255,255,255,0.1)',
+      background: 'var(--card-bg)', border: '1px solid var(--card-border)',
       borderRadius: 16, padding: '2rem', textAlign: 'center', cursor: 'pointer',
       transition: 'transform 0.2s, box-shadow 0.2s',
       display: 'flex', flexDirection: 'column', alignItems: 'center',
@@ -35,12 +35,12 @@ function ActionCard({ icon, title, description, color, onClick }) {
         width: 72, height: 72, borderRadius: '50%',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: '2rem', marginBottom: '1.25rem',
-        background: `${color}15`,
+        background: 'color-mix(in srgb, ' + color + ' 12%, transparent)',
       }}>
         {icon}
       </div>
       <h3 style={{ fontSize: '1.15rem', marginBottom: '0.5rem' }}>{title}</h3>
-      <p style={{ fontSize: '0.85rem', color: '#94a3b8', lineHeight: 1.5, marginBottom: '1.25rem' }}>
+      <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '1.25rem' }}>
         {description}
       </p>
       <span style={{
@@ -64,7 +64,7 @@ export default function Dashboard() {
       <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{
           width: 40, height: 40,
-          border: '3px solid rgba(99,102,241,0.3)', borderTopColor: '#6366f1',
+          border: '3px solid rgba(99,102,241,0.3)', borderTopColor: 'var(--accent)',
           borderRadius: '50%', animation: 'spin 0.8s linear infinite',
         }} />
       </div>
@@ -88,7 +88,7 @@ export default function Dashboard() {
   const BackLink = ({ onClick }) => (
     <button onClick={onClick} style={{
       display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
-      color: '#94a3b8', background: 'none', border: 'none', cursor: 'pointer',
+      color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer',
       fontSize: '0.9rem', marginBottom: '1.5rem', padding: 0,
     }}>
       ← Back
@@ -101,25 +101,25 @@ export default function Dashboard() {
       {view === VIEWS.UPLOAD && (
         <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '2rem' }}>
           <div style={{
-            background: 'rgba(30,41,59,0.7)', border: '1px solid rgba(255,255,255,0.1)',
+            background: 'var(--card-bg)', border: '1px solid var(--card-border)',
             borderRadius: 16, padding: '1.5rem',
           }}>
             <Upload onUpload={handleUpload} />
           </div>
           <div style={{
-            background: 'rgba(30,41,59,0.7)', border: '1px solid rgba(255,255,255,0.1)',
+            background: 'var(--card-bg)', border: '1px solid var(--card-border)',
             borderRadius: 16, padding: '3rem 2rem', textAlign: 'center',
           }}>
-            <div style={{ fontSize: '3.5rem', color: '#6366f1', marginBottom: '1.25rem' }}>🎓</div>
+            <div style={{ fontSize: '3.5rem', color: 'var(--accent)', marginBottom: '1.25rem' }}>🎓</div>
             <h2 style={{ fontSize: '1.5rem', marginBottom: '0.75rem' }}>AI-Powered Study Companion</h2>
-            <p style={{ color: '#94a3b8', maxWidth: 560, margin: '0 auto 2rem', fontSize: '0.95rem', lineHeight: 1.6 }}>
+            <p style={{ color: 'var(--text-secondary)', maxWidth: 560, margin: '0 auto 2rem', fontSize: '0.95rem', lineHeight: 1.6 }}>
               Upload a PDF to unlock intelligent study tools — summaries, flashcards, and adaptive testing that learns your level.
             </p>
             <div style={{ display: 'inline-flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
               {['📄 Smart Summary', '🃏 Flashcards', '📈 Adaptive Test'].map((label) => (
                 <span key={label} style={{
-                  background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-                  color: '#cbd5e1', padding: '0.5rem 1rem', borderRadius: 20, fontSize: '0.85rem',
+                  background: 'var(--surface-1)', border: '1px solid var(--card-border)',
+                  color: 'var(--text)', padding: '0.5rem 1rem', borderRadius: 20, fontSize: '0.85rem',
                 }}>
                   ✅ {label}
                 </span>
@@ -133,9 +133,9 @@ export default function Dashboard() {
       {view === VIEWS.ACTION_SELECT && (
         <div style={{ maxWidth: 900, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-            <div style={{ fontSize: '2rem', color: '#6366f1', marginBottom: '0.75rem' }}>✅</div>
+            <div style={{ fontSize: '2rem', color: 'var(--accent)', marginBottom: '0.75rem' }}>✅</div>
             <h2 style={{ fontSize: '1.5rem', marginBottom: '0.25rem' }}>{documentName}</h2>
-            <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>PDF processed. Choose your study mode below.</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>PDF processed. Choose your study mode below.</p>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
@@ -143,28 +143,28 @@ export default function Dashboard() {
               icon="📄"
               title="Summary"
               description="Auto-generated TL;DR, key concepts, and terminology definitions."
-              color="#6366f1"
+              color="var(--accent)"
               onClick={() => setView(VIEWS.SUMMARY)}
             />
             <ActionCard
               icon="🃏"
               title="Flashcards"
               description="20 interactive flashcards with click-to-flip and keyboard navigation."
-              color="#8b5cf6"
+              color="var(--accent-2)"
               onClick={() => setView(VIEWS.FLASHCARDS)}
             />
             <ActionCard
               icon="📈"
               title="Adaptive Test"
               description="Dynamic difficulty quiz powered by continuous Online Learning Elo."
-              color="#10b981"
+              color="var(--success)"
               onClick={() => setView(VIEWS.ADAPTIVE_TEST)}
             />
           </div>
 
           <div style={{ textAlign: 'center', marginTop: '2rem' }}>
             <button onClick={() => setView(VIEWS.UPLOAD)} style={{
-              color: '#94a3b8', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.9rem',
+              color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.9rem',
             }}>
               ← Upload another PDF
             </button>
@@ -177,7 +177,7 @@ export default function Dashboard() {
         <div style={{ maxWidth: 900, margin: '0 auto' }}>
           <BackLink onClick={() => setView(VIEWS.ACTION_SELECT)} />
           <div style={{
-            background: 'rgba(30,41,59,0.7)', border: '1px solid rgba(255,255,255,0.1)',
+            background: 'var(--card-bg)', border: '1px solid var(--card-border)',
             borderRadius: 16, padding: '1.5rem',
           }}>
             <h2 style={{ fontSize: '1.15rem', fontWeight: 600, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>

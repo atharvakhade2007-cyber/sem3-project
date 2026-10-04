@@ -263,9 +263,9 @@
 }
 
 .badge--soft {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--surface-1);
   color: #94a3b8;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--border-soft);
 }
 
 .badge--success {

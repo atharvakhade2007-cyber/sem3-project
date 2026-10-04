@@ -17,7 +17,7 @@ const METRIC_DESC = {
 };
 
 const MEDALS = ['🥇', '🥈', '🥉'];
-const TIER_COLOR = { easy: '#34d399', medium: '#fbbf24', hard: '#f87171' };
+const TIER_COLOR = { easy: 'var(--success-text)', medium: 'var(--warning-text)', hard: 'var(--danger-text)' };
 
 function FriendLeaderboardPanel() {
   const { user } = useAuth();
@@ -47,7 +47,7 @@ function FriendLeaderboardPanel() {
 
   return (
     <div style={{
-      background: 'rgba(30,41,59,0.7)', border: '1px solid rgba(255,255,255,0.1)',
+      background: 'var(--card-bg)', border: '1px solid var(--card-border)',
       borderRadius: 20, padding: '1.5rem', marginTop: '1.5rem',
     }}>
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
@@ -55,32 +55,32 @@ function FriendLeaderboardPanel() {
           const active = metric === m.key;
           return (
             <button key={m.key} onClick={() => setMetric(m.key)} style={{
-              background: active ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : 'rgba(255,255,255,0.05)',
-              border: active ? 'none' : '1px solid rgba(255,255,255,0.1)',
+              background: active ? 'var(--accent-gradient)' : 'var(--surface-1)',
+              border: active ? 'none' : '1px solid var(--card-border)',
               borderRadius: 10, padding: '0.55rem 1rem',
-              color: active ? '#fff' : '#94a3b8', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer',
+              color: active ? '#fff' : 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer',
             }}>
               {m.label}
             </button>
           );
         })}
       </div>
-      <p style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: '1rem' }}>
+      <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
         {METRIC_DESC[metric]} · scoped to your friends
       </p>
 
       {loading && (
-        <p style={{ color: '#64748b', fontSize: '0.85rem', textAlign: 'center', padding: '1rem' }}>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textAlign: 'center', padding: '1rem' }}>
           Loading friends leaderboard…
         </p>
       )}
       {!loading && error && (
-        <p style={{ color: '#fca5a5', fontSize: '0.85rem', textAlign: 'center', padding: '1rem' }}>
+        <p style={{ color: 'var(--danger-text)', fontSize: '0.85rem', textAlign: 'center', padding: '1rem' }}>
           {error}
         </p>
       )}
       {!loading && !error && entries.length === 0 && (
-        <p style={{ color: '#64748b', fontSize: '0.85rem', textAlign: 'center', padding: '1rem' }}>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textAlign: 'center', padding: '1rem' }}>
           {metric === 'all_time'
             ? 'No daily-quiz activity among your friends yet.'
             : 'No rankings to show among your friends yet.'}
@@ -99,25 +99,25 @@ function FriendLeaderboardPanel() {
               }}>
                 <span style={{ width: 30, textAlign: 'center', fontSize: '1.05rem', flexShrink: 0 }}>
                   {e.rank <= 3 ? MEDALS[e.rank - 1]
-                    : <span style={{ color: '#64748b', fontSize: '0.85rem' }}>{e.rank}</span>}
+                    : <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{e.rank}</span>}
                 </span>
                 <span style={{ fontSize: '1.1rem' }}>{e.avatar_emoji || avatarEmoji(e.avatar)}</span>
                 <span style={{
                   flex: 1, fontWeight: isMe ? 800 : 600, fontSize: '0.9rem',
-                  color: isMe ? '#a5b4fc' : undefined,
+                  color: isMe ? 'var(--accent-text)' : undefined,
                 }}>
                   {e.username} {isMe && <span style={{ fontSize: '0.68rem', background: 'rgba(99,102,241,0.3)', padding: '0.1rem 0.45rem', borderRadius: 8, marginLeft: 4 }}>you</span>}
                 </span>
                 <span style={{
                   fontSize: '0.7rem', padding: '0.15rem 0.55rem', borderRadius: 20,
-                  background: `${TIER_COLOR[e.gk_skill_tier] || '#94a3b8'}22`,
-                  color: TIER_COLOR[e.gk_skill_tier] || '#94a3b8', flexShrink: 0,
+                  background: 'color-mix(in srgb, ' + (TIER_COLOR[e.gk_skill_tier] || 'var(--text-secondary)') + ' 16%, transparent)',
+                  color: TIER_COLOR[e.gk_skill_tier] || 'var(--text-secondary)', flexShrink: 0,
                 }}>
                   {TIER_LABELS[e.gk_skill_tier] || e.gk_skill_tier}
                 </span>
                 <span style={{
                   fontWeight: 800, fontSize: '0.92rem', minWidth: 92, textAlign: 'right',
-                  color: metric === 'elo' ? '#f59e0b' : metric === 'streak' ? '#fb923c' : '#34d399',
+                  color: metric === 'elo' ? 'var(--warning-text)' : metric === 'streak' ? 'var(--warning-text)' : 'var(--success-text)',
                 }}>
                   {valueFor(e)}
                 </span>
@@ -127,7 +127,7 @@ function FriendLeaderboardPanel() {
           {data?.meta?.my_rank != null && data.meta.total_users > 1 && (
             <p style={{
               textAlign: 'center', marginTop: '0.75rem', fontSize: '0.82rem',
-              color: '#a5b4fc', fontWeight: 700,
+              color: 'var(--accent-text)', fontWeight: 700,
             }}>
               Rank #{data.meta.my_rank} of {data.meta.total_users} in your circle
             </p>
@@ -152,8 +152,8 @@ export default function LeaderboardPage() {
 
       {/* Scope toggle */}
       <div style={{
-        display: 'inline-flex', gap: '0.25rem', background: 'rgba(255,255,255,0.05)',
-        border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '0.25rem',
+        display: 'inline-flex', gap: '0.25rem', background: 'var(--surface-1)',
+        border: '1px solid var(--card-border)', borderRadius: 12, padding: '0.25rem',
       }}>
         {[
           { key: 'global', label: '🌍 Global' },
@@ -162,7 +162,7 @@ export default function LeaderboardPage() {
           const active = scope === s.key;
           return (
             <button key={s.key} onClick={() => setScope(s.key)} style={{
-              background: active ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : 'transparent',
+              background: active ? 'var(--accent-gradient)' : 'transparent',
               border: 'none', borderRadius: 9, padding: '0.55rem 1.4rem',
               color: active ? '#fff' : 'var(--text-secondary)',
               fontSize: '0.88rem', fontWeight: 700, cursor: 'pointer',

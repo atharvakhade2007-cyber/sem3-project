@@ -4,42 +4,99 @@
   padding: 0;
 }
 
-/* ── Theme tokens ─────────────────────────────────── */
+/* -- Theme tokens --------------------------------------------------
+ * Light is the default (no data-theme, or data-theme='light').
+ * [data-theme='dark'] only overrides the tokens that actually change,
+ * so both modes stay in sync automatically.
+ * ----------------------------------------------------------------- */
 :root,
-[data-theme='dark'] {
-  --bg: #0f172a;
-  --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
-  --text: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  --card-bg: rgba(30, 41, 59, 0.7);
-  --card-bg-solid: #1e293b;
-  --card-border: rgba(255, 255, 255, 0.1);
-  --input-bg: rgba(255, 255, 255, 0.05);
-  --input-border: rgba(255, 255, 255, 0.12);
-  --accent: #6366f1;
-  --accent-2: #8b5cf6;
-  --danger: #ef4444;
-  --success: #10b981;
-  --shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
-}
-
 [data-theme='light'] {
   --bg: #f1f5f9;
   --bg-gradient: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 50%, #f1f5f9 100%);
+
   --text: #0f172a;
   --text-secondary: #475569;
-  --text-muted: #64748b;
+  --text-muted: #566579;
+
   --card-bg: #ffffff;
   --card-bg-solid: #ffffff;
   --card-border: rgba(15, 23, 42, 0.12);
+
+  /* Translucent surfaces for pills, rows and hover states. */
+  --surface-0: rgba(15, 23, 42, 0.03);
+  --surface-1: rgba(15, 23, 42, 0.05);
+  --surface-2: rgba(15, 23, 42, 0.08);
+  --hover: rgba(15, 23, 42, 0.06);
+
+  --border-soft: rgba(15, 23, 42, 0.12);
+  --border-strong: rgba(15, 23, 42, 0.2);
+
   --input-bg: #ffffff;
   --input-border: rgba(15, 23, 42, 0.2);
+
   --accent: #4f46e5;
   --accent-2: #7c3aed;
+  --accent-text: #4f46e5;
+
   --danger: #dc2626;
+  --danger-text: #dc2626;
   --success: #059669;
+  --success-text: #047857;
+  --warning-text: #b45309;
+
+  --focus-ring: rgba(79, 70, 229, 0.25);
+  --overlay: rgba(15, 23, 42, 0.45);
   --shadow: 0 12px 30px rgba(15, 23, 42, 0.1);
+  --shadow-soft: 0 12px 30px rgba(15, 23, 42, 0.08);
+  --accent-gradient: linear-gradient(135deg, #6366f1, #8b5cf6);
+  --accent-gradient-hover: linear-gradient(135deg, #7c6cf0, #9370f8);
+  --success-gradient: linear-gradient(135deg, #10b981, #059669);
+  --danger-gradient: linear-gradient(135deg, #ef4444, #f97316);
+  --info-text: #0369a1;
+}
+
+[data-theme='dark'] {
+  --bg: #0f172a;
+  --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+
+  --text: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #8593a8;
+
+  --card-bg: rgba(30, 41, 59, 0.7);
+  --card-bg-solid: #1e293b;
+  --card-border: rgba(255, 255, 255, 0.1);
+
+  --surface-0: rgba(255, 255, 255, 0.03);
+  --surface-1: rgba(255, 255, 255, 0.05);
+  --surface-2: rgba(255, 255, 255, 0.08);
+  --hover: rgba(255, 255, 255, 0.06);
+
+  --border-soft: rgba(255, 255, 255, 0.12);
+  --border-strong: rgba(255, 255, 255, 0.15);
+
+  --input-bg: rgba(255, 255, 255, 0.05);
+  --input-border: rgba(255, 255, 255, 0.12);
+
+  --accent: #6366f1;
+  --accent-2: #8b5cf6;
+  --accent-text: #a5b4fc;
+
+  --danger: #ef4444;
+  --danger-text: #f87171;
+  --success: #10b981;
+  --success-text: #34d399;
+  --warning-text: #fbbf24;
+
+  --focus-ring: rgba(99, 102, 241, 0.35);
+  --overlay: rgba(2, 6, 23, 0.7);
+  --shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+  --shadow-soft: 0 12px 30px rgba(0, 0, 0, 0.3);
+  --accent-gradient: linear-gradient(135deg, #6366f1, #8b5cf6);
+  --accent-gradient-hover: linear-gradient(135deg, #7c6cf0, #9370f8);
+  --success-gradient: linear-gradient(135deg, #10b981, #059669);
+  --danger-gradient: linear-gradient(135deg, #ef4444, #f97316);
+  --info-text: #38bdf8;
 }
 
 body {

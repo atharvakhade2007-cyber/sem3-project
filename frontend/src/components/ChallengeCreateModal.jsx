@@ -7,7 +7,7 @@ import {
   fetchMyCompletedSessions,
 } from '../api';
 
-const TIER_COLOR = { easy: '#34d399', medium: '#fbbf24', hard: '#f87171' };
+const TIER_COLOR = { easy: 'var(--success-text)', medium: 'var(--warning-text)', hard: 'var(--danger-text)' };
 
 function fmtTime(sec) {
   if (sec == null) return '—';
@@ -66,12 +66,12 @@ export default function ChallengeCreateModal() {
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 210,
-      background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+      background: 'var(--overlay)', backdropFilter: 'blur(4px)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
     }} onClick={closeChallenge}>
       <div onClick={e => e.stopPropagation()} style={{
         width: 'min(520px, 100%)', maxHeight: '82vh', overflow: 'hidden',
-        background: 'var(--card-bg-solid, #111622)', border: '1px solid var(--card-border)',
+        background: 'var(--card-bg-solid)', border: '1px solid var(--card-border)',
         borderRadius: 20, boxShadow: '0 30px 80px rgba(0,0,0,0.5)',
         display: 'flex', flexDirection: 'column',
       }}>
@@ -100,7 +100,7 @@ export default function ChallengeCreateModal() {
               <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'center' }}>
                 <button
                   onClick={() => { closeChallenge(); openSocial('duels'); }}
-                  style={{ padding: '0.6rem 1.2rem', borderRadius: 10, background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', border: 'none', color: '#fff', fontWeight: 700, cursor: 'pointer' }}
+                  style={{ padding: '0.6rem 1.2rem', borderRadius: 10, background: 'var(--accent-gradient)', border: 'none', color: '#fff', fontWeight: 700, cursor: 'pointer' }}
                 >View Duels</button>
                 <button
                   onClick={closeChallenge}
@@ -114,7 +114,7 @@ export default function ChallengeCreateModal() {
                 <div style={{
                   padding: '0.55rem 0.8rem', borderRadius: 8, marginBottom: '0.8rem',
                   fontSize: '0.82rem', background: 'rgba(248,113,113,0.12)',
-                  border: '1px solid rgba(248,113,113,0.3)', color: '#fca5a5',
+                  border: '1px solid rgba(248,113,113,0.3)', color: 'var(--danger-text)',
                 }}>{notice}</div>
               )}
 
@@ -148,7 +148,7 @@ export default function ChallengeCreateModal() {
                         </span>
                       </span>
                       <span style={{
-                        background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
+                        background: 'var(--danger-gradient)',
                         color: '#fff', borderRadius: 8, padding: '0.4rem 0.8rem',
                         fontSize: '0.78rem', fontWeight: 700, flexShrink: 0,
                       }}>⚔️ Send</span>
@@ -178,7 +178,7 @@ export default function ChallengeCreateModal() {
                       }}>
                       <span style={{
                         width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
-                        background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                        background: 'var(--accent-gradient)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem',
                       }}>{avatarEmoji(u.avatar)}</span>
                       <span style={{ flex: 1, minWidth: 0 }}>
@@ -188,7 +188,7 @@ export default function ChallengeCreateModal() {
                         </span>
                       </span>
                       <span style={{
-                        background: 'linear-gradient(135deg, #f59e0b, #ef4444)', color: '#fff',
+                        background: 'var(--danger-gradient)', color: '#fff',
                         borderRadius: 8, padding: '0.4rem 0.8rem', fontSize: '0.78rem', fontWeight: 700, flexShrink: 0,
                       }}>⚔️ Challenge</span>
                     </button>

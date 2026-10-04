@@ -25,7 +25,7 @@ export default class ErrorBoundary extends Component {
           <button
             onClick={() => { this.setState({ error: null }); window.location.href = '/'; }}
             style={{
-              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+              background: 'var(--accent-gradient)',
               color: '#fff', border: 'none', borderRadius: 10,
               padding: '0.65rem 1.5rem', fontSize: '0.9rem',
               fontWeight: 700, cursor: 'pointer',

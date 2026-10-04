@@ -55,7 +55,7 @@ export default function Footer() {
             width: 8,
             height: 8,
             borderRadius: '50%',
-            background: '#10b981',
+            background: 'var(--success)',
             boxShadow: '0 0 6px rgba(16,185,129,0.7)',
           }} />
           All systems operational

@@ -17,7 +17,7 @@ export default function ProtectedRoute({ children }) {
           width: 40,
           height: 40,
           border: '3px solid rgba(99,102,241,0.3)',
-          borderTopColor: '#6366f1',
+          borderTopColor: 'var(--accent)',
           borderRadius: '50%',
           animation: 'spin 0.8s linear infinite',
         }} />
