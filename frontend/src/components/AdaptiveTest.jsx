@@ -21,9 +21,9 @@ const DEFAULT_COUNT = 10;
 
 // ─── Difficulty Styling ────────────────────────
 const DIFF_STYLES = {
-  easy: { bg: 'rgba(16,185,129,0.15)', color: '#34d399', border: 'rgba(16,185,129,0.3)' },
-  medium: { bg: 'rgba(245,158,11,0.15)', color: '#fbbf24', border: 'rgba(245,158,11,0.3)' },
-  hard: { bg: 'rgba(239,68,68,0.15)', color: '#fca5a5', border: 'rgba(239,68,68,0.3)' },
+  easy: { bg: 'rgba(16,185,129,0.15)', color: 'var(--success-text)', border: 'rgba(16,185,129,0.3)' },
+  medium: { bg: 'rgba(245,158,11,0.15)', color: 'var(--warning-text)', border: 'rgba(245,158,11,0.3)' },
+  hard: { bg: 'rgba(239,68,68,0.15)', color: 'var(--danger-text)', border: 'rgba(239,68,68,0.3)' },
 };
 
 function DiffBadge({ label }) {
@@ -208,22 +208,22 @@ export default function AdaptiveTest({ documentId }) {
     return (
       <div style={{ textAlign: 'center', padding: '4rem 2rem' }}>
         <h2 style={{ fontSize: '1.8rem', marginBottom: '0.75rem' }}>Adaptive Test</h2>
-        <p style={{ color: '#94a3b8', maxWidth: 540, margin: '0 auto 2rem', lineHeight: 1.6 }}>
-          Every new learner starts at <strong style={{ color: '#f8fafc' }}>0 Elo</strong>.
-          Each answer moves your rating — <span style={{ color: '#34d399' }}>correct answers push it up (+)</span>,
-          <span style={{ color: '#fca5a5' }}> wrong answers pull it down (−)</span> — and the test keeps
+        <p style={{ color: 'var(--text-secondary)', maxWidth: 540, margin: '0 auto 2rem', lineHeight: 1.6 }}>
+          Every new learner starts at <strong style={{ color: 'var(--text)' }}>0 Elo</strong>.
+          Each answer moves your rating — <span style={{ color: 'var(--success-text)' }}>correct answers push it up (+)</span>,
+          <span style={{ color: 'var(--danger-text)' }}> wrong answers pull it down (−)</span> — and the test keeps
           serving questions at your level. Climb from Beginner to Expert!
         </p>
         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginBottom: '2rem', flexWrap: 'wrap', alignItems: 'center' }}>
           <DiffBadge label="easy" />
           <DiffBadge label="medium" />
           <DiffBadge label="hard" />
-          <span style={{ color: '#64748b', fontSize: '0.8rem' }}>question difficulty</span>
+          <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>question difficulty</span>
         </div>
 
         {/* Quiz length picker — how many questions to answer. */}
         <div style={{ marginBottom: '2rem' }}>
-          <div style={{ color: '#94a3b8', fontSize: '0.85rem', marginBottom: '0.6rem', fontWeight: 600 }}>
+          <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '0.6rem', fontWeight: 600 }}>
             How many questions?
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -235,10 +235,10 @@ export default function AdaptiveTest({ documentId }) {
                   onClick={() => setQuizLength(n)}
                   style={{
                     padding: '0.55rem 1.2rem',
-                    background: active ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : 'rgba(255,255,255,0.05)',
-                    border: active ? 'none' : '1px solid rgba(255,255,255,0.12)',
+                    background: active ? 'var(--accent-gradient)' : 'var(--surface-1)',
+                    border: active ? 'none' : '1px solid var(--border-soft)',
                     borderRadius: 10,
-                    color: active ? '#fff' : '#94a3b8',
+                    color: active ? '#fff' : 'var(--text-secondary)',
                     fontWeight: 700,
                     fontSize: '0.9rem',
                     cursor: 'pointer',
@@ -254,7 +254,7 @@ export default function AdaptiveTest({ documentId }) {
 
         <button onClick={handleStart} style={{
           padding: '0.875rem 2.5rem',
-          background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+          background: 'var(--accent-gradient)',
           border: 'none',
           borderRadius: '10px',
           color: 'white',
@@ -271,11 +271,11 @@ export default function AdaptiveTest({ documentId }) {
   // ─── Render: LOADING / SUBMITTING ────────────
   if (state === STATES.LOADING || state === STATES.SUBMITTING) {
     return (
-      <div style={{ textAlign: 'center', padding: '4rem', color: '#94a3b8' }}>
+      <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-secondary)' }}>
         <div style={{
           display: 'inline-block', width: 40, height: 40,
-          border: '4px solid rgba(255,255,255,0.15)', borderRadius: '50%',
-          borderTopColor: '#6366f1', animation: 'spin 0.8s linear infinite',
+          border: '4px solid var(--border-strong)', borderRadius: '50%',
+          borderTopColor: 'var(--accent)', animation: 'spin 0.8s linear infinite',
           marginBottom: '1rem',
         }} />
         <p>{state === STATES.LOADING ? 'Preparing test...' : 'Submitting answer...'}</p>
@@ -291,17 +291,17 @@ export default function AdaptiveTest({ documentId }) {
           <div style={{
             display: 'inline-block', padding: '0.75rem 2rem', borderRadius: '30px',
             fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.75rem',
-            background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: 'white',
+            background: 'var(--accent-gradient)', color: 'white',
           }}>
             {results.rating_badge}
           </div>
           <h2 style={{ fontSize: '1.5rem', marginBottom: '0.35rem' }}>Test Complete!</h2>
-          <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: 0 }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: 0 }}>
             Elo journey: {Math.round(results.start_elo ?? 0)} → {Math.round(results.end_elo ?? results.final_elo ?? 0)}
             <span style={{
               fontWeight: 800, marginLeft: '0.5rem',
               color: (results.end_elo ?? results.final_elo ?? 0) >= (results.start_elo ?? 0)
-                ? '#34d399' : '#fca5a5',
+                ? 'var(--success-text)' : 'var(--danger-text)',
             }}>
               {((results.end_elo ?? results.final_elo ?? 0) >= (results.start_elo ?? 0) ? '+' : '')}
               {Math.round((results.end_elo ?? results.final_elo ?? 0) - (results.start_elo ?? 0))} Elo
@@ -318,52 +318,52 @@ export default function AdaptiveTest({ documentId }) {
             })}
             style={{
               padding: '0.8rem 1.8rem', borderRadius: 12, cursor: 'pointer',
-              background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
+              background: 'var(--danger-gradient)',
               border: 'none', color: '#fff', fontWeight: 800, fontSize: '0.95rem',
               boxShadow: '0 6px 20px rgba(245,158,11,0.35)',
             }}
           >
             ⚔️ Challenge a Friend to Beat This
           </button>
-          <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.5rem' }}>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
             A friend answers these exact {results.total_questions} questions — higher score wins, time breaks ties.
           </p>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
-          <div style={{ textAlign: 'center', padding: '1rem', background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10 }}>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#10b981' }}>{results.accuracy}%</div>
-            <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.25rem' }}>Accuracy</div>
+          <div style={{ textAlign: 'center', padding: '1rem', background: 'var(--card-bg-solid)', border: '1px solid var(--card-border)', borderRadius: 10 }}>
+            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--success)' }}>{results.accuracy}%</div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>Accuracy</div>
           </div>
-          <div style={{ textAlign: 'center', padding: '1rem', background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10 }}>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#94a3b8' }}>{results.start_elo?.toFixed(0)}</div>
-            <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.25rem' }}>Start Elo</div>
+          <div style={{ textAlign: 'center', padding: '1rem', background: 'var(--card-bg-solid)', border: '1px solid var(--card-border)', borderRadius: 10 }}>
+            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-secondary)' }}>{results.start_elo?.toFixed(0)}</div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>Start Elo</div>
           </div>
-          <div style={{ textAlign: 'center', padding: '1rem', background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10 }}>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#f59e0b' }}>{results.end_elo?.toFixed(0)}</div>
-            <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.25rem' }}>End Elo</div>
+          <div style={{ textAlign: 'center', padding: '1rem', background: 'var(--card-bg-solid)', border: '1px solid var(--card-border)', borderRadius: 10 }}>
+            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--warning-text)' }}>{results.end_elo?.toFixed(0)}</div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>End Elo</div>
           </div>
-          <div style={{ textAlign: 'center', padding: '1rem', background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10 }}>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#8b5cf6' }}>{results.correct_count}/{results.total_questions}</div>
-            <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.25rem' }}>Correct</div>
+          <div style={{ textAlign: 'center', padding: '1rem', background: 'var(--card-bg-solid)', border: '1px solid var(--card-border)', borderRadius: 10 }}>
+            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--accent-2)' }}>{results.correct_count}/{results.total_questions}</div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>Correct</div>
           </div>
         </div>
 
         <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.75rem' }}>Question Review</h3>
         <ul style={{ listStyle: 'none' }}>
           {results.breakdown?.map((item, i) => (
-            <li key={i} style={{ padding: '1rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+            <li key={i} style={{ padding: '1rem', borderBottom: '1px solid var(--surface-1)' }}>
               <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Q{i + 1}. {item.question_text}</div>
-              <div style={{ fontSize: '0.8rem', color: '#94a3b8', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                <span style={{ color: item.is_correct ? '#10b981' : '#ef4444' }}>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <span style={{ color: item.is_correct ? 'var(--success)' : 'var(--danger)' }}>
                   {item.is_correct ? '✓ Correct' : '✗ Incorrect'}
                 </span>
                 <span>Your: {['A','B','C','D'][item.selected_index]} | Correct: {['A','B','C','D'][item.correct_index]}</span>
                 <DiffBadge label={item.difficulty_label} />
-                <span style={{ color: '#f59e0b' }}>Elo: {item.user_elo_after?.toFixed(0)}</span>
+                <span style={{ color: 'var(--warning-text)' }}>Elo: {item.user_elo_after?.toFixed(0)}</span>
               </div>
               {item.explanation && (
-                <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#cbd5e1', padding: '0.5rem 0.75rem', background: 'rgba(255,255,255,0.03)', borderRadius: 6 }}>
+                <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: 'var(--text)', padding: '0.5rem 0.75rem', background: 'var(--surface-0)', borderRadius: 6 }}>
                   {item.explanation}
                 </div>
               )}
@@ -377,10 +377,10 @@ export default function AdaptiveTest({ documentId }) {
   // ─── Render: ERROR ───────────────────────────
   if (state === STATES.ERROR) {
     return (
-      <div style={{ textAlign: 'center', padding: '4rem', color: '#ef4444' }}>
+      <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--danger)' }}>
         <p>Error: {error}</p>
         <button onClick={() => { setState(STATES.IDLE); setError(null); }} style={{
-          marginTop: '1rem', padding: '0.5rem 1.5rem', background: '#6366f1', border: 'none', borderRadius: 8, color: 'white', cursor: 'pointer'
+          marginTop: '1rem', padding: '0.5rem 1.5rem', background: 'var(--accent)', border: 'none', borderRadius: 8, color: 'white', cursor: 'pointer'
         }}>
           Try Again
         </button>
@@ -402,14 +402,14 @@ export default function AdaptiveTest({ documentId }) {
         <div>
           {/* Progress — Question X of N (N = user-selected quiz length) */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
-            <div style={{ flex: 1, height: 6, background: 'rgba(255,255,255,0.1)', borderRadius: 3, overflow: 'hidden' }}>
+            <div style={{ flex: 1, height: 6, background: 'var(--card-border)', borderRadius: 3, overflow: 'hidden' }}>
               <div style={{
-                height: '100%', background: 'linear-gradient(90deg, #6366f1, #8b5cf6)',
+                height: '100%', background: 'var(--accent-gradient)',
                 borderRadius: 3, width: `${Math.min(100, (stats.answered / Math.max(totalQuestions, 1)) * 100)}%`,
                 transition: 'width 0.3s',
               }} />
             </div>
-            <span style={{ fontSize: '0.85rem', color: '#94a3b8', fontWeight: 600 }}>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
               {stats.answered} / {totalQuestions} answered
             </span>
           </div>
@@ -418,13 +418,13 @@ export default function AdaptiveTest({ documentId }) {
               unmounts the previous question (and any per-question state) the
               instant we transition to the next one. */}
           <div key={question?.id} style={{
-            background: 'rgba(30,41,59,0.7)', border: '1px solid rgba(255,255,255,0.1)',
+            background: 'var(--card-bg)', border: '1px solid var(--card-border)',
             borderRadius: 16, padding: '1.5rem', boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
           }}>
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <span style={{
-                background: 'rgba(99,102,241,0.2)', color: '#a5b4fc', fontWeight: 700,
+                background: 'rgba(99,102,241,0.2)', color: 'var(--accent-text)', fontWeight: 700,
                 fontSize: '0.8rem', padding: '0.25rem 0.6rem', borderRadius: 6,
               }}>
                 Question {questionNumber} of {totalQuestions}
@@ -444,21 +444,21 @@ export default function AdaptiveTest({ documentId }) {
                 const isCorrectOption = isFeedback && i === feedback?.correctIndex;
                 const isWrongSelected = isFeedback && i === selectedIndex && !feedback?.isCorrect;
 
-                let bg = 'rgba(255,255,255,0.03)';
-                let borderColor = 'rgba(255,255,255,0.1)';
+                let bg = 'var(--surface-0)';
+                let borderColor = 'var(--card-border)';
 
                 if (!isFeedback && isSelected) {
                   // Selected but not yet submitted — highlight in primary
                   bg = 'rgba(99,102,241,0.15)';
-                  borderColor = '#6366f1';
+                  borderColor = 'var(--accent)';
                 }
                 if (isFeedback && isCorrectOption) {
                   bg = 'rgba(16,185,129,0.12)';
-                  borderColor = '#10b981';
+                  borderColor = 'var(--success)';
                 }
                 if (isFeedback && isWrongSelected) {
                   bg = 'rgba(239,68,68,0.12)';
-                  borderColor = '#ef4444';
+                  borderColor = 'var(--danger)';
                 }
 
                 return (
@@ -471,16 +471,16 @@ export default function AdaptiveTest({ documentId }) {
                       padding: '0.875rem 1rem', background: bg,
                       border: `1px solid ${borderColor}`, borderRadius: 10,
                       cursor: isFeedback ? 'default' : 'pointer',
-                      fontSize: '0.95rem', color: '#f8fafc', textAlign: 'left',
+                      fontSize: '0.95rem', color: 'var(--text)', textAlign: 'left',
                       transition: 'all 0.2s', width: '100%',
                     }}
                   >
                     <span style={{
                       width: 28, height: 28, borderRadius: '50%',
-                      background: isCorrectOption ? '#10b981'
-                        : isWrongSelected ? '#ef4444'
-                        : isSelected && !isFeedback ? '#6366f1'
-                        : 'rgba(255,255,255,0.1)',
+                      background: isCorrectOption ? 'var(--success)'
+                        : isWrongSelected ? 'var(--danger)'
+                        : isSelected && !isFeedback ? 'var(--accent)'
+                        : 'var(--card-border)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontWeight: 700, fontSize: '0.8rem', flexShrink: 0,
                       color: (isCorrectOption || isWrongSelected || (isSelected && !isFeedback)) ? 'white' : undefined,
@@ -497,7 +497,7 @@ export default function AdaptiveTest({ documentId }) {
             {!isFeedback && selectedIndex !== null && (
               <button onClick={handleSubmitAnswer} style={{
                 marginTop: '1.25rem', width: '100%',
-                padding: '0.875rem', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                padding: '0.875rem', background: 'var(--accent-gradient)',
                 border: 'none', borderRadius: 10, color: 'white',
                 fontWeight: 600, fontSize: '0.95rem', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
@@ -509,7 +509,7 @@ export default function AdaptiveTest({ documentId }) {
             {/* Hint when nothing selected */}
             {!isFeedback && selectedIndex === null && (
               <div style={{
-                marginTop: '1rem', textAlign: 'center', fontSize: '0.85rem', color: '#64748b',
+                marginTop: '1rem', textAlign: 'center', fontSize: '0.85rem', color: 'var(--text-muted)',
               }}>
                 Select an option, then press <strong>Submit Answer</strong> (or Enter)
               </div>
@@ -522,21 +522,21 @@ export default function AdaptiveTest({ documentId }) {
                   padding: '1rem', borderRadius: 10, marginTop: '1rem',
                   background: feedback.isCorrect ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
                   border: `1px solid ${feedback.isCorrect ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`,
-                  color: feedback.isCorrect ? '#34d399' : '#fca5a5', fontSize: '0.9rem',
+                  color: feedback.isCorrect ? 'var(--success-text)' : 'var(--danger-text)', fontSize: '0.9rem',
                 }}>
                   <div style={{ fontWeight: 600, fontSize: '1rem', marginBottom: '0.25rem' }}>
                     {feedback.isCorrect ? '✓ Correct!' : `✗ Incorrect — The answer is ${keys[feedback.correctIndex]}`}
                   </div>
                   {stats.eloChange !== 0 && (
-                    <div style={{ fontWeight: 800, fontSize: '0.95rem', color: stats.eloChange > 0 ? '#34d399' : '#fca5a5' }}>
+                    <div style={{ fontWeight: 800, fontSize: '0.95rem', color: stats.eloChange > 0 ? 'var(--success-text)' : 'var(--danger-text)' }}>
                       {stats.eloChange > 0 ? '▲ +' : '▼ −'}{Math.abs(stats.eloChange).toFixed(1)} Elo
-                      <span style={{ fontWeight: 600, color: '#94a3b8', marginLeft: '0.6rem', fontSize: '0.8rem' }}>
+                      <span style={{ fontWeight: 600, color: 'var(--text-secondary)', marginLeft: '0.6rem', fontSize: '0.8rem' }}>
                         ({Math.round(stats.elo - stats.eloChange)} → {Math.round(stats.elo)})
                       </span>
                     </div>
                   )}
                   {feedback.explanation && (
-                    <div style={{ marginTop: '0.5rem', color: '#cbd5e1', lineHeight: 1.6 }}>
+                    <div style={{ marginTop: '0.5rem', color: 'var(--text)', lineHeight: 1.6 }}>
                       {feedback.explanation}
                     </div>
                   )}
@@ -544,7 +544,7 @@ export default function AdaptiveTest({ documentId }) {
 
                 <button onClick={handleNext} style={{
                   marginTop: '1rem', width: '100%',
-                  padding: '0.75rem', background: results ? '#10b981' : '#6366f1',
+                  padding: '0.75rem', background: results ? 'var(--success)' : 'var(--accent)',
                   border: 'none', borderRadius: 10, color: 'white',
                   fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer',
                 }}>
@@ -558,39 +558,39 @@ export default function AdaptiveTest({ documentId }) {
         {/* Sidebar stats */}
         <div>
           <div style={{
-            background: 'rgba(30,41,59,0.7)', border: '1px solid rgba(255,255,255,0.1)',
+            background: 'var(--card-bg)', border: '1px solid var(--card-border)',
             borderRadius: 16, padding: '1.5rem', marginBottom: '1rem',
           }}>
             <div style={{ marginBottom: '1rem' }}>
-              <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Current Elo</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#f59e0b' }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Current Elo</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--warning-text)' }}>
                 {stats.elo.toFixed(0)}
                 {stats.eloChange !== 0 && (
-                  <span style={{ fontSize: '0.8rem', color: stats.eloChange > 0 ? '#10b981' : '#ef4444', marginLeft: 8 }}>
+                  <span style={{ fontSize: '0.8rem', color: stats.eloChange > 0 ? 'var(--success)' : 'var(--danger)', marginLeft: 8 }}>
                     {stats.eloChange > 0 ? '+' : ''}{stats.eloChange.toFixed(1)}
                   </span>
                 )}
               </div>
-              <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '0.3rem' }}>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.3rem' }}>
                 Level: <span style={{ color: eloLevel(stats.elo).color, fontWeight: 800 }}>{eloLevel(stats.elo).label}</span>
               </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-              <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Correct</span>
-              <span style={{ fontWeight: 700, color: '#10b981' }}>{stats.correct}</span>
+              <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Correct</span>
+              <span style={{ fontWeight: 700, color: 'var(--success)' }}>{stats.correct}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Wrong</span>
-              <span style={{ fontWeight: 700, color: '#ef4444' }}>{stats.wrong}</span>
+              <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Wrong</span>
+              <span style={{ fontWeight: 700, color: 'var(--danger)' }}>{stats.wrong}</span>
             </div>
           </div>
 
           <div style={{
-            background: 'rgba(30,41,59,0.7)', border: '1px solid rgba(255,255,255,0.1)',
+            background: 'var(--card-bg)', border: '1px solid var(--card-border)',
             borderRadius: 16, padding: '1rem',
           }}>
-            <div style={{ fontSize: '0.8rem', color: '#64748b', lineHeight: 1.6 }}>
-              <strong style={{ color: '#94a3b8' }}>Keyboard shortcuts</strong><br />
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+              <strong style={{ color: 'var(--text-secondary)' }}>Keyboard shortcuts</strong><br />
               <kbd style={kbdStyle}>1</kbd>-<kbd style={kbdStyle}>4</kbd> Select option<br />
               <kbd style={kbdStyle}>Enter</kbd> Submit / Next
             </div>
@@ -603,6 +603,6 @@ export default function AdaptiveTest({ documentId }) {
 
 const kbdStyle = {
   display: 'inline-block', padding: '0.1rem 0.4rem',
-  background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
-  borderRadius: 4, fontSize: '0.7rem', fontFamily: 'monospace', color: '#94a3b8',
+  background: 'var(--surface-2)', border: '1px solid var(--border-strong)',
+  borderRadius: 4, fontSize: '0.7rem', fontFamily: 'monospace', color: 'var(--text-secondary)',
 };

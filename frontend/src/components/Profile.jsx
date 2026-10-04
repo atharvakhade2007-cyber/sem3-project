@@ -36,7 +36,7 @@ function Alert({ type, children }) {
     <div style={{
       background: isError ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)',
       border: `1px solid ${isError ? 'rgba(239,68,68,0.35)' : 'rgba(16,185,129,0.35)'}`,
-      color: isError ? '#fca5a5' : '#34d399',
+      color: isError ? 'var(--danger-text)' : 'var(--success-text)',
       borderRadius: 10,
       padding: '0.7rem 1rem',
       fontSize: '0.85rem',
@@ -185,7 +185,7 @@ export default function Profile() {
       }}>
         <div style={{
           width: 64, height: 64, borderRadius: '50%',
-          background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+          background: 'var(--accent-gradient)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: '1.9rem',
           border: '2px solid var(--card-border)',
@@ -208,7 +208,7 @@ export default function Profile() {
           const active = tab === t.key;
           return (
             <button key={t.key} onClick={() => { setTab(t.key); setAlert(null); if (t.key === 'analytics' && !analytics) loadAnalytics(); }} style={{
-              background: active ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : 'var(--card-bg)',
+              background: active ? 'var(--accent-gradient)' : 'var(--card-bg)',
               border: active ? 'none' : '1px solid var(--card-border)',
               borderRadius: 10, padding: '0.55rem 1.1rem',
               color: active ? '#fff' : 'var(--text-secondary)',
@@ -328,7 +328,7 @@ export default function Profile() {
                       cursor: 'pointer',
                       background: selected ? 'rgba(99,102,241,0.2)' : 'var(--input-bg)',
                       border: selected
-                        ? '2px solid #6366f1'
+                        ? '2px solid var(--accent)'
                         : '1px solid var(--input-border)',
                       transition: 'all 0.15s',
                     }}
@@ -341,7 +341,7 @@ export default function Profile() {
           </div>
 
           <button type="submit" disabled={busy} style={{
-            background: busy ? 'var(--card-border)' : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+            background: busy ? 'var(--card-border)' : 'var(--accent-gradient)',
             color: busy ? 'var(--text-muted)' : '#fff',
             border: 'none', borderRadius: 10, padding: '0.75rem 2rem',
             fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer',
@@ -393,7 +393,7 @@ export default function Profile() {
           </div>
 
           <button type="submit" disabled={busy} style={{
-            background: busy ? 'var(--card-border)' : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+            background: busy ? 'var(--card-border)' : 'var(--accent-gradient)',
             color: busy ? 'var(--text-muted)' : '#fff',
             border: 'none', borderRadius: 10, padding: '0.75rem 2rem',
             fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer',

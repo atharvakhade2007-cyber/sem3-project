@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { UiProvider } from './context/UiContext';
+import { ThemeProvider } from './context/ThemeContext';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import AuthPage from './components/AuthPage';
@@ -14,6 +15,7 @@ import QuizPage from './pages/QuizPage';
 
 export default function App() {
   return (
+    <ThemeProvider>
     <AuthProvider>
       <UiProvider>
       <BrowserRouter>
@@ -54,5 +56,6 @@ export default function App() {
       </BrowserRouter>
       </UiProvider>
     </AuthProvider>
+    </ThemeProvider>
   );
 }

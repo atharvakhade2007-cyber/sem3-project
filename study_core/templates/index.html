@@ -12,6 +12,20 @@
 </head>
 <body>
     <div id="root"></div>
+    <script>
+      // Apply the saved theme before first paint so there is no flash of the
+      // wrong colour scheme. Light is the default when nothing is stored.
+      (function () {
+        try {
+          var stored = localStorage.getItem('theme');
+          document.documentElement.setAttribute(
+            'data-theme', stored === 'dark' ? 'dark' : 'light'
+          );
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      })();
+    </script>
     <script type="module" src="{% static 'react_build/assets/index.js' %}"></script>
 </body>
 </html>

@@ -2,18 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useUi } from '../context/UiContext';
+import { useTheme } from '../context/ThemeContext';
 import { fetchPendingCount } from '../api';
 import { eloLevelName, avatarEmoji } from '../constants';
 
 function ThemeToggle() {
-  const [theme, setTheme] = useState(
-    () => localStorage.getItem('theme') || 'dark'
-  );
-
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('theme', theme);
-  }, [theme]);
+  const { theme, setTheme } = useTheme();
 
   return (
     <button
@@ -135,7 +129,7 @@ export default function Navbar() {
             <span style={{
               width: 20, height: 20,
               border: '2px solid rgba(99,102,241,0.3)',
-              borderTopColor: '#6366f1',
+              borderTopColor: 'var(--accent)',
               borderRadius: '50%',
               animation: 'spin 0.8s linear infinite',
               display: 'inline-block',
@@ -165,7 +159,7 @@ export default function Navbar() {
                   <span style={{
                     position: 'absolute', top: -6, right: -6,
                     minWidth: 18, height: 18, borderRadius: 10,
-                    background: '#ef4444', color: '#fff',
+                    background: 'var(--danger)', color: '#fff',
                     fontSize: '0.68rem', fontWeight: 800,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     padding: '0 4px',
@@ -183,7 +177,7 @@ export default function Navbar() {
                 gap: '0.35rem',
                 background: 'rgba(251,146,60,0.12)',
                 border: '1px solid rgba(251,146,60,0.35)',
-                color: '#fdba74',
+                color: 'var(--warning-text)',
                 borderRadius: 20,
                 padding: '0.3rem 0.8rem',
                 fontSize: '0.85rem',
@@ -201,7 +195,7 @@ export default function Navbar() {
                     width: 40,
                     height: 40,
                     borderRadius: '50%',
-                    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                    background: 'var(--accent-gradient)',
                     border: '2px solid var(--card-border)',
                     fontSize: '1.15rem',
                     cursor: 'pointer',
@@ -263,7 +257,7 @@ export default function Navbar() {
                         border: 'none',
                         borderRadius: 8,
                         padding: '0.55rem 0.6rem',
-                        color: '#f87171',
+                        color: 'var(--danger-text)',
                         fontSize: '0.9rem',
                         cursor: 'pointer',
                       }}
@@ -297,7 +291,7 @@ export default function Navbar() {
                 fontWeight: 700,
                 padding: '0.5rem 1.1rem',
                 borderRadius: 10,
-                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                background: 'var(--accent-gradient)',
               }}>
                 Get Started
               </Link>

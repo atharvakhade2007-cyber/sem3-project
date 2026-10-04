@@ -523,7 +523,7 @@ class Friendship(models.Model):
                 name='uniq_friendship_pair',
             ),
             models.CheckConstraint(
-                check=models.Q(sender_id__lt=models.F('receiver_id')),
+                condition=models.Q(sender_id__lt=models.F('receiver_id')),
                 name='friendship_canonical_order',
             ),
         ]

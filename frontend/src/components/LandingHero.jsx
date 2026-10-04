@@ -23,7 +23,7 @@ export default function LandingHero() {
           Log In
         </Link>
         <Link to="/signup" style={{
-          background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+          background: 'var(--accent-gradient)',
           color: '#fff', textDecoration: 'none',
           borderRadius: 12, padding: '0.8rem 2rem', fontWeight: 700,
           boxShadow: '0 4px 18px rgba(99,102,241,0.4)',

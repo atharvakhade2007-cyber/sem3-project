@@ -33,7 +33,7 @@ function PasswordStrengthMeter({ password }) {
     { label: 'Contains a symbol', ok: /[^A-Za-z0-9]/.test(password) },
   ];
   const score = checks.filter(c => c.ok).length;
-  const color = ['#64748b', '#ef4444', '#f59e0b', '#10b981'][score];
+  const color = ['var(--text-muted)', 'var(--danger)', 'var(--warning-text)', 'var(--success)'][score];
   const label = ['', 'Weak', 'Fair', 'Strong'][score];
 
   return (
@@ -74,7 +74,7 @@ function PasswordStrengthMeter({ password }) {
 function FieldError({ message }) {
   if (!message) return null;
   return (
-    <div style={{ color: '#f87171', fontSize: '0.78rem', marginTop: '0.3rem' }}>
+    <div style={{ color: 'var(--danger-text)', fontSize: '0.78rem', marginTop: '0.3rem' }}>
       {message}
     </div>
   );
@@ -108,7 +108,7 @@ function ForgotPasswordModal({ onClose }) {
   return (
     <div onClick={onClose} style={{
       position: 'fixed', inset: 0, zIndex: 200,
-      background: 'rgba(0,0,0,0.6)',
+      background: 'var(--overlay)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       padding: '1rem',
     }}>
@@ -140,7 +140,7 @@ function ForgotPasswordModal({ onClose }) {
             <div style={{
               background: 'rgba(16,185,129,0.1)',
               border: '1px solid rgba(16,185,129,0.3)',
-              color: '#34d399', borderRadius: 10, padding: '0.75rem 1rem',
+              color: 'var(--success-text)', borderRadius: 10, padding: '0.75rem 1rem',
               fontSize: '0.85rem', marginBottom: '1rem',
             }}>
               {status.text}
@@ -163,7 +163,7 @@ function ForgotPasswordModal({ onClose }) {
             <button onClick={onClose} style={{
               width: '100%', padding: '0.7rem', borderRadius: 10,
               border: 'none', cursor: 'pointer', fontWeight: 700,
-              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff',
+              background: 'var(--accent-gradient)', color: '#fff',
             }}>
               Done
             </button>
@@ -189,7 +189,7 @@ function ForgotPasswordModal({ onClose }) {
                 width: '100%', marginTop: '1rem', padding: '0.7rem',
                 borderRadius: 10, border: 'none', cursor: 'pointer',
                 fontWeight: 700, fontSize: '0.9rem',
-                background: busy ? 'var(--card-border)' : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                background: busy ? 'var(--card-border)' : 'var(--accent-gradient)',
                 color: busy ? 'var(--text-muted)' : '#fff',
               }}
             >
@@ -344,7 +344,7 @@ export default function AuthPage({ mode = 'login' }) {
                   fontSize: '0.9rem',
                   color: active ? '#fff' : 'var(--text-secondary)',
                   background: active
-                    ? 'linear-gradient(135deg, #6366f1, #8b5cf6)'
+                    ? 'var(--accent-gradient)'
                     : 'transparent',
                   transition: 'all 0.15s',
                 }}
@@ -360,7 +360,7 @@ export default function AuthPage({ mode = 'login' }) {
           <div style={{
             background: 'rgba(239,68,68,0.1)',
             border: '1px solid rgba(239,68,68,0.35)',
-            color: '#fca5a5',
+            color: 'var(--danger-text)',
             borderRadius: 10,
             padding: '0.7rem 1rem',
             fontSize: '0.85rem',
@@ -427,7 +427,7 @@ export default function AuthPage({ mode = 'login' }) {
                     type="checkbox"
                     checked={loginForm.remember_me}
                     onChange={e => setField('login', 'remember_me', e.target.checked)}
-                    style={{ accentColor: '#6366f1', width: 15, height: 15, cursor: 'pointer' }}
+                    style={{ accentColor: 'var(--accent)', width: 15, height: 15, cursor: 'pointer' }}
                   />
                   Remember Me
                 </label>
@@ -435,7 +435,7 @@ export default function AuthPage({ mode = 'login' }) {
                   type="button"
                   onClick={() => setShowReset(true)}
                   style={{
-                    background: 'none', border: 'none', color: '#a78bfa',
+                    background: 'none', border: 'none', color: 'var(--accent-text)',
                     fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer',
                   }}
                 >
@@ -450,7 +450,7 @@ export default function AuthPage({ mode = 'login' }) {
                   width: '100%', padding: '0.8rem', borderRadius: 12,
                   border: 'none', cursor: 'pointer', fontWeight: 800,
                   fontSize: '0.95rem',
-                  background: busy ? 'var(--card-border)' : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                  background: busy ? 'var(--card-border)' : 'var(--accent-gradient)',
                   color: busy ? 'var(--text-muted)' : '#fff',
                   boxShadow: busy ? 'none' : '0 4px 18px rgba(99,102,241,0.4)',
                 }}
@@ -543,7 +543,7 @@ export default function AuthPage({ mode = 'login' }) {
                   width: '100%', padding: '0.8rem', borderRadius: 12,
                   border: 'none', cursor: 'pointer', fontWeight: 800,
                   fontSize: '0.95rem',
-                  background: busy ? 'var(--card-border)' : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                  background: busy ? 'var(--card-border)' : 'var(--accent-gradient)',
                   color: busy ? 'var(--text-muted)' : '#fff',
                   boxShadow: busy ? 'none' : '0 4px 18px rgba(99,102,241,0.4)',
                 }}

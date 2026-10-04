@@ -52,11 +52,11 @@ export default function Flashcards({ documentId }) {
 
   if (loading) {
     return (
-      <div style={{ textAlign: 'center', padding: '4rem', color: '#94a3b8' }}>
+      <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-secondary)' }}>
         <div style={{
           display: 'inline-block', width: 40, height: 40,
-          border: '4px solid rgba(255,255,255,0.15)', borderRadius: '50%',
-          borderTopColor: '#6366f1', animation: 'spin 0.8s linear infinite',
+          border: '4px solid var(--border-strong)', borderRadius: '50%',
+          borderTopColor: 'var(--accent)', animation: 'spin 0.8s linear infinite',
           marginBottom: '1rem',
         }} />
         <p>Generating flashcards...</p>
@@ -66,7 +66,7 @@ export default function Flashcards({ documentId }) {
 
   if (error) {
     return (
-      <div style={{ textAlign: 'center', padding: '4rem', color: '#ef4444' }}>
+      <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--danger)' }}>
         <p>Error: {error}</p>
       </div>
     );
@@ -74,7 +74,7 @@ export default function Flashcards({ documentId }) {
 
   if (cards.length === 0) {
     return (
-      <div style={{ textAlign: 'center', padding: '4rem', color: '#94a3b8' }}>
+      <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-secondary)' }}>
         <p>No flashcards generated.</p>
       </div>
     );
@@ -86,7 +86,7 @@ export default function Flashcards({ documentId }) {
   return (
     <div>
       <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
-        <p style={{ color: '#94a3b8', fontSize: '0.85rem', marginTop: '0.25rem' }}>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '0.25rem' }}>
           <kbd style={kbdStyle}>←</kbd> <kbd style={kbdStyle}>→</kbd> navigate |
           <kbd style={kbdStyle}>Space</kbd> flip
         </p>
@@ -94,13 +94,13 @@ export default function Flashcards({ documentId }) {
 
       {/* Progress bar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
-        <div style={{ flex: 1, height: 6, background: 'rgba(255,255,255,0.1)', borderRadius: 3, overflow: 'hidden' }}>
+        <div style={{ flex: 1, height: 6, background: 'var(--card-border)', borderRadius: 3, overflow: 'hidden' }}>
           <div style={{
-            height: '100%', background: 'linear-gradient(90deg, #6366f1, #8b5cf6)',
+            height: '100%', background: 'var(--accent-gradient)',
             borderRadius: 3, width: `${progress}%`, transition: 'width 0.3s',
           }} />
         </div>
-        <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>{currentIndex + 1} / {cards.length}</span>
+        <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{currentIndex + 1} / {cards.length}</span>
       </div>
 
       {/* Card with flip */}
@@ -119,18 +119,18 @@ export default function Flashcards({ documentId }) {
           {/* Front */}
           <div style={{
             position: 'absolute', inset: 0, backfaceVisibility: 'hidden',
-            borderRadius: 16, background: 'rgba(30,41,59,0.7)', border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: 16, background: 'var(--card-bg)', border: '1px solid var(--card-border)',
             padding: '2.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center',
             justifyContent: 'center', textAlign: 'center',
             boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
           }}>
-            <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#94a3b8', marginBottom: '1rem' }}>
+            <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
               Question
             </div>
             <div style={{ fontSize: '1.2rem', lineHeight: 1.6, fontWeight: 500 }}>
               {card.front}
             </div>
-            <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '1.5rem' }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '1.5rem' }}>
               Click or press Space to reveal answer
             </div>
           </div>
@@ -139,18 +139,18 @@ export default function Flashcards({ documentId }) {
           <div style={{
             position: 'absolute', inset: 0, backfaceVisibility: 'hidden',
             transform: 'rotateY(180deg)',
-            borderRadius: 16, background: 'rgba(30,41,59,0.7)', border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: 16, background: 'var(--card-bg)', border: '1px solid var(--card-border)',
             padding: '2.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center',
             justifyContent: 'center', textAlign: 'center',
             boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
           }}>
-            <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#94a3b8', marginBottom: '1rem' }}>
+            <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
               Answer
             </div>
-            <div style={{ fontSize: '1.2rem', lineHeight: 1.6, fontWeight: 500, color: '#10b981' }}>
+            <div style={{ fontSize: '1.2rem', lineHeight: 1.6, fontWeight: 500, color: 'var(--success)' }}>
               {card.back}
             </div>
-            <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '1.5rem' }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '1.5rem' }}>
               Click or press Space to see question
             </div>
           </div>
@@ -162,7 +162,7 @@ export default function Flashcards({ documentId }) {
         <button onClick={prevCard} disabled={currentIndex === 0} style={ctrlBtnStyle}>
           ←
         </button>
-        <button onClick={flipCard} style={{ ...ctrlBtnStyle, width: 'auto', padding: '0 1.5rem', borderRadius: 10, fontWeight: 600, fontSize: '0.9rem', background: '#6366f1', border: 'none' }}>
+        <button onClick={flipCard} style={{ ...ctrlBtnStyle, width: 'auto', padding: '0 1.5rem', borderRadius: 10, fontWeight: 600, fontSize: '0.9rem', background: 'var(--accent)', border: 'none' }}>
           Flip Card
         </button>
         <button onClick={nextCard} disabled={currentIndex === cards.length - 1} style={ctrlBtnStyle}>
@@ -175,13 +175,13 @@ export default function Flashcards({ documentId }) {
 
 const kbdStyle = {
   display: 'inline-block', padding: '0.15rem 0.5rem',
-  background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
-  borderRadius: 4, fontSize: '0.75rem', fontFamily: 'monospace', color: '#94a3b8',
+  background: 'var(--surface-2)', border: '1px solid var(--border-strong)',
+  borderRadius: 4, fontSize: '0.75rem', fontFamily: 'monospace', color: 'var(--text-secondary)',
 };
 
 const ctrlBtnStyle = {
   width: 50, height: 50, borderRadius: '50%',
-  border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)',
-  color: '#f8fafc', fontSize: '1.1rem', cursor: 'pointer',
+  border: '1px solid var(--card-border)', background: 'var(--surface-1)',
+  color: 'var(--text)', fontSize: '1.1rem', cursor: 'pointer',
   display: 'flex', alignItems: 'center', justifyContent: 'center',
 };

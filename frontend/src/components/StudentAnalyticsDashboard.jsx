@@ -5,15 +5,15 @@ import {
 } from 'recharts';
 
 const DIFFICULTY_COLORS = {
-  easy: '#10b981',
-  medium: '#f59e0b',
-  hard: '#ef4444',
+  easy: 'var(--success)',
+  medium: 'var(--warning-text)',
+  hard: 'var(--danger)',
 };
 
 const TIER_COLORS = {
-  Beginner: '#10b981',
-  Intermediate: '#f59e0b',
-  Advanced: '#ef4444',
+  Beginner: 'var(--success)',
+  Intermediate: 'var(--warning-text)',
+  Advanced: 'var(--danger)',
 };
 
 function StatCard({ icon, label, value, sub }) {
@@ -37,7 +37,7 @@ function StatCard({ icon, label, value, sub }) {
 }
 
 function TierProgressRing({ current, next, pct, points }) {
-  const color = TIER_COLORS[current] || '#6366f1';
+  const color = TIER_COLORS[current] || 'var(--accent)';
   const size = 120;
   const stroke = 10;
   const radius = (size - stroke) / 2;
@@ -86,7 +86,7 @@ export default function StudentAnalyticsDashboard({ analytics, loading, onRefres
         {onRefresh && (
           <button onClick={onRefresh} style={{
             marginTop: '1rem',
-            background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+            background: 'var(--accent-gradient)',
             color: '#fff', border: 'none',
             borderRadius: 8, padding: '0.5rem 1.2rem',
             fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem',
@@ -177,7 +177,7 @@ export default function StudentAnalyticsDashboard({ analytics, loading, onRefres
               <YAxis dataKey="name" type="category" width={50} tick={{ fill: 'var(--text)', fontSize: 12 }} />
               <Tooltip
                 contentStyle={{
-                  background: 'rgba(15,23,42,0.95)',
+                  background: 'var(--card-bg-solid)',
                   border: '1px solid var(--card-border)',
                   borderRadius: 8,
                   color: 'var(--text)',
@@ -226,7 +226,7 @@ export default function StudentAnalyticsDashboard({ analytics, loading, onRefres
               />
               <Tooltip
                 contentStyle={{
-                  background: 'rgba(15,23,42,0.95)',
+                  background: 'var(--card-bg-solid)',
                   border: '1px solid var(--card-border)',
                   borderRadius: 8,
                   color: 'var(--text)',
@@ -251,19 +251,19 @@ export default function StudentAnalyticsDashboard({ analytics, loading, onRefres
             <LineChart data={tsData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--card-border)" />
               <XAxis dataKey="date" tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
-              <YAxis yAxisId="left" domain={['auto', 'auto']} tick={{ fill: '#6366f1', fontSize: 11 }} />
-              <YAxis yAxisId="right" orientation="right" domain={[0, 100]} tick={{ fill: '#f59e0b', fontSize: 11 }} />
+              <YAxis yAxisId="left" domain={['auto', 'auto']} tick={{ fill: 'var(--accent)', fontSize: 11 }} />
+              <YAxis yAxisId="right" orientation="right" domain={[0, 100]} tick={{ fill: 'var(--warning-text)', fontSize: 11 }} />
               <Tooltip
                 contentStyle={{
-                  background: 'rgba(15,23,42,0.95)',
+                  background: 'var(--card-bg-solid)',
                   border: '1px solid var(--card-border)',
                   borderRadius: 8,
                   color: 'var(--text)',
                   fontSize: '0.8rem',
                 }}
               />
-              <Line yAxisId="left" type="monotone" dataKey="elo" stroke="#6366f1" strokeWidth={2} dot={{ fill: '#6366f1', r: 3 }} name="Elo" />
-              <Line yAxisId="right" type="monotone" dataKey="accuracy" stroke="#f59e0b" strokeWidth={2} dot={{ fill: '#f59e0b', r: 3 }} name="Accuracy %" />
+              <Line yAxisId="left" type="monotone" dataKey="elo" stroke="#6366f1" strokeWidth={2} dot={{ fill: 'var(--accent)', r: 3 }} name="Elo" />
+              <Line yAxisId="right" type="monotone" dataKey="accuracy" stroke="#f59e0b" strokeWidth={2} dot={{ fill: 'var(--warning-text)', r: 3 }} name="Accuracy %" />
             </LineChart>
           </ResponsiveContainer>
         ) : (
@@ -296,12 +296,12 @@ export default function StudentAnalyticsDashboard({ analytics, loading, onRefres
               </thead>
               <tbody>
                 {recent_quizzes.map(q => (
-                  <tr key={q.session_id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                  <tr key={q.session_id} style={{ borderBottom: '1px solid var(--surface-1)' }}>
                     <td style={{ padding: '0.5rem 0.75rem', color: 'var(--text)', fontWeight: 500 }}>{q.topic}</td>
                     <td style={{ padding: '0.5rem 0.75rem', color: 'var(--text-secondary)' }}>{q.date}</td>
                     <td style={{ padding: '0.5rem 0.75rem', color: 'var(--text)' }}>{q.score}</td>
                     <td style={{ padding: '0.5rem 0.75rem', color: 'var(--text)' }}>{q.accuracy?.toFixed(1)}%</td>
-                    <td style={{ padding: '0.5rem 0.75rem', color: q.elo_delta?.startsWith('+') ? '#10b981' : '#ef4444', fontWeight: 600 }}>{q.elo_delta}</td>
+                    <td style={{ padding: '0.5rem 0.75rem', color: q.elo_delta?.startsWith('+') ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>{q.elo_delta}</td>
                     <td style={{ padding: '0.5rem 0.75rem', color: 'var(--text-secondary)' }}>{q.time_taken}</td>
                   </tr>
                 ))}
@@ -314,7 +314,7 @@ export default function StudentAnalyticsDashboard({ analytics, loading, onRefres
             {onRefresh && (
               <button onClick={onRefresh} style={{
                 marginTop: '1rem',
-                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                background: 'var(--accent-gradient)',
                 color: '#fff', border: 'none',
                 borderRadius: 8, padding: '0.5rem 1.2rem',
                 fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem',
