@@ -17,10 +17,12 @@ An adaptive learning platform where students upload their study material (PDFs),
 
 - **Backend:** Python, Django, Django REST Framework, Simple JWT
 - **Frontend:** React, Vite
-- **Machine learning:** scikit-learn, pandas, joblib
+- **Machine learning:** scikit-learn, pandas, joblib, Models: Gradient Boosting Classifier in a pipeline with SimpleImputer and StandardScaler. It predicts three classes (Beginner, Intermediate, Advanced) from 13 input features.
 - **Background jobs:** Celery, Redis
 - **Database:** PostgreSQL hosted on Supabase
 - **AI:** Google Gemini API
+- **Background Jobs:** Celery (runs the daily quiz), Redis (message broker for Celery)
+- **Adaptive Testing:** IRT-based and Elo-based engines
 
 ## Screenshots
 
