@@ -24,10 +24,10 @@ An adaptive learning platform where students upload their study material (PDFs),
 
 ## Screenshots
 
-![Landing page](C:\Users\athar\Downloads)
-![Dashboard](docs/screenshots/dashboard.png)
-![Adaptive quiz](docs/screenshots/adaptive-quiz.png)
-![Analytics](docs/screenshots/analytics.png)
+![Landing page](images/Landing_page.jpeg)
+![Dashboard](images/Dashboard.jpeg)
+![Adaptive quiz](images/Quizz_in_progress.jpeg)
+![Analytics](images/Analytics.jpeg)
 
 ## Project Structure
 
